@@ -63,6 +63,11 @@ def close_position(ticket: int) -> dict:
     return _send({"cmd": "close_position", "ticket": ticket})
 
 
+def get_closed_deals(from_timestamp: int) -> list:
+    """Fetch GoldBot closing deals since from_timestamp (unix seconds)."""
+    return _send({"cmd": "get_closed_deals", "from_timestamp": from_timestamp})
+
+
 if __name__ == "__main__":
     # Connectivity test — will fail if Windows bridge isn't running (expected for now)
     print(f"Attempting to connect to MT5 bridge at {BRIDGE_HOST}:{BRIDGE_PORT}...")

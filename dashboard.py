@@ -5,7 +5,7 @@ import time
 from datetime import datetime, timezone
 
 import mt5_bridge as bridge
-from db import init_db, get_decisions, get_trades, get_equity_history, get_stats
+from db import init_db, get_decisions, get_trades, get_equity_history, get_stats, get_session_stats
 
 # ── Page config ───────────────────────────────────────────
 st.set_page_config(
@@ -110,10 +110,11 @@ account, positions, connected = fetch_live()
 balance  = account.get("balance", 0)
 equity   = account.get("equity", 0)
 pnl      = equity - balance
-eq_hist  = get_equity_history()
-stats    = get_stats()
+eq_hist      = get_equity_history()
+stats        = get_stats()
 decisions_df = get_decisions(50)
 trades_df    = get_trades(50)
+session_df   = get_session_stats()
 
 # Header row
 col_title, col_status, col_refresh = st.columns([4, 1, 1])
@@ -132,7 +133,7 @@ with col_refresh:
 st.divider()
 
 # ── Metrics ───────────────────────────────────────────────
-m1, m2, m3, m4, m5 = st.columns(5)
+m1, m2, m3, m4, m5, m6 = st.columns(6)
 with m1:
     st.metric("Balance", f"${balance:,.2f}")
 with m2:
@@ -142,10 +143,13 @@ with m3:
 with m4:
     st.metric("Total Orders", stats["total_trades"])
 with m5:
-    ratio = (stats["trade_count"] / (stats["trade_count"] + stats["hold_count"]) * 100
-             if (stats["trade_count"] + stats["hold_count"]) > 0 else 0)
-    st.metric("Trade Rate", f"{ratio:.0f}%",
-              help="% of cycles where AI triggered a trade vs HOLD")
+    wr = stats["win_rate"]
+    st.metric("Win Rate", f"{wr:.1f}%",
+              help=f"{stats['wins']} wins from {stats['closed_trades']} closed trades")
+with m6:
+    total_pnl = stats["total_pnl"]
+    st.metric("Total P&L", f"${total_pnl:+,.2f}",
+              help=f"Avg per trade: ${stats['avg_pnl']:+.2f}")
 
 # ── Equity Curve ──────────────────────────────────────────
 st.markdown('<p class="section-header">Equity Curve</p>', unsafe_allow_html=True)
@@ -226,8 +230,14 @@ with col_dec:
 # ── Trade History ─────────────────────────────────────────
 st.markdown('<p class="section-header">Trade History</p>', unsafe_allow_html=True)
 if not trades_df.empty:
-    display = trades_df[["timestamp", "action", "lot", "entry_price", "sl", "tp", "ticket"]].copy()
-    display.columns = ["Time", "Action", "Lot", "Entry", "SL", "TP", "Ticket"]
+    cols = ["timestamp", "action", "lot", "entry_price", "exit_price", "pnl_dollars", "close_reason", "duration_minutes", "ticket"]
+    available = [c for c in cols if c in trades_df.columns]
+    display = trades_df[available].copy()
+    display.rename(columns={
+        "timestamp": "Time", "action": "Action", "lot": "Lot",
+        "entry_price": "Entry", "exit_price": "Exit", "pnl_dollars": "P&L",
+        "close_reason": "Reason", "duration_minutes": "Mins", "ticket": "Ticket"
+    }, inplace=True)
     display["Time"] = display["Time"].str[:16].str.replace("T", " ")
     st.dataframe(
         display,
@@ -235,14 +245,32 @@ if not trades_df.empty:
         hide_index=True,
         column_config={
             "Action": st.column_config.TextColumn("Action", width="small"),
-            "Lot":    st.column_config.NumberColumn("Lot",   format="%.2f"),
-            "Entry":  st.column_config.NumberColumn("Entry", format="$%.2f"),
-            "SL":     st.column_config.NumberColumn("SL",    format="$%.2f"),
-            "TP":     st.column_config.NumberColumn("TP",    format="$%.2f"),
+            "Lot":    st.column_config.NumberColumn("Lot",    format="%.2f"),
+            "Entry":  st.column_config.NumberColumn("Entry",  format="$%.2f"),
+            "Exit":   st.column_config.NumberColumn("Exit",   format="$%.2f"),
+            "P&L":    st.column_config.NumberColumn("P&L",    format="$%+.2f"),
+            "Mins":   st.column_config.NumberColumn("Mins",   format="%.0f"),
         }
     )
 else:
     st.info("Trade history will appear after the first order is placed.")
+
+# ── Session Performance ───────────────────────────────────
+if not session_df.empty:
+    st.markdown('<p class="section-header">Performance by Session</p>', unsafe_allow_html=True)
+    st.dataframe(
+        session_df[["session", "trades", "wins", "win_rate", "avg_pnl", "total_pnl"]].rename(columns={
+            "session": "Session", "trades": "Trades", "wins": "Wins",
+            "win_rate": "Win %", "avg_pnl": "Avg P&L", "total_pnl": "Total P&L"
+        }),
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Win %":     st.column_config.NumberColumn("Win %",    format="%.1f%%"),
+            "Avg P&L":   st.column_config.NumberColumn("Avg P&L",  format="$%+.2f"),
+            "Total P&L": st.column_config.NumberColumn("Total P&L", format="$%+.2f"),
+        }
+    )
 
 # ── Auto-refresh every 30s ────────────────────────────────
 time.sleep(30)

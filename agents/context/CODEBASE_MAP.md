@@ -80,8 +80,10 @@ goldMT/
 ## Key Functions by File
 
 ### `main.py`
+- `get_session() -> str` — returns asian/london/overlap/new_york/dead based on UTC hour
 - `build_market_data()` — fetches candles for H1/H4/D1, computes indicators
-- `run()` — main 60s loop: account → risk gate → market data → AI → trade
+- `check_closed_positions(prev, current, open_since)` — detects closed trades, writes exit data
+- `run()` — main 60s loop: account → closed position check → risk gate → market data → AI → trade → context log
 
 ### `config.py`
 - Module-level constants only (no functions)
@@ -110,14 +112,17 @@ goldMT/
 - `_send(command) -> dict` — internal socket call
 
 ### `db.py`
-- `init_db()` — creates tables if not exist
-- `log_decision(...)` — inserts AI decision
-- `log_trade(...)` — inserts trade record
-- `log_equity(...)` — inserts equity snapshot
+- `init_db()` — creates tables + migrates existing trades table if columns missing
+- `log_decision(...) -> int` — inserts AI decision, returns row ID
+- `log_decision_context(decision_id, session, indicators, spread)` — stores indicator snapshot
+- `log_trade(..., decision_id)` — inserts trade record
+- `update_trade_exit(ticket, exit_price, exit_time, pnl_dollars, close_reason, duration_minutes)` — fills in exit data
+- `log_equity(balance, equity)` — inserts equity snapshot
 - `get_decisions(limit) -> DataFrame`
 - `get_trades(limit) -> DataFrame`
 - `get_equity_history() -> DataFrame`
-- `get_stats() -> dict`
+- `get_stats() -> dict` — includes win_rate, total_pnl, avg_pnl
+- `get_session_stats() -> DataFrame` — win rate + P&L by session
 
 ### `dashboard.py`
 - `fetch_live()` — cached 15s, gets account + positions
@@ -177,6 +182,20 @@ dashboard.py  →  browser :8501
 | tp | REAL | Absolute price |
 | ticket | INTEGER | MT5 order ticket |
 | status | TEXT | filled / error |
+
+### Table: `decision_context`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INTEGER PK | |
+| decision_id | INTEGER | FK → decisions.id |
+| session | TEXT | asian / london / overlap / new_york / dead |
+| h1_rsi | REAL | RSI on H1 at decision time |
+| h4_rsi | REAL | RSI on H4 at decision time |
+| d1_rsi | REAL | RSI on D1 at decision time |
+| h1_ema20 | REAL | EMA20 on H1 at decision time |
+| h4_ema20 | REAL | EMA20 on H4 at decision time |
+| h1_atr | REAL | ATR on H1 at decision time |
+| spread | REAL | Bid/ask spread at decision time |
 
 ### Table: `equity_history`
 | Column | Type | Notes |
