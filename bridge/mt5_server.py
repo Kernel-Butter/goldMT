@@ -57,10 +57,11 @@ def handle_command(cmd: dict) -> dict:
         positions = mt5.positions_get()
         if positions is None:
             return []
+        # Only count positions opened by this bot (magic 123456), not manual/pre-existing trades
         return [
             {"ticket": p.ticket, "symbol": p.symbol, "type": "BUY" if p.type == 0 else "SELL",
              "lot": p.volume, "open_price": p.price_open, "sl": p.sl, "tp": p.tp, "profit": p.profit}
-            for p in positions
+            for p in positions if p.magic == 123456
         ]
 
     elif action == "place_order":

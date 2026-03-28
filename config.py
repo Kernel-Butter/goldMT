@@ -21,5 +21,10 @@ RISK_PER_TRADE = 0.01      # 1% of account per trade
 MAX_OPEN_TRADES = 2
 DAILY_LOSS_LIMIT = 0.03    # 3% daily drawdown limit
 
+# --- XAUUSD Contract Spec ---
+# Standard lot = 100 oz. A $1 move = $100 P&L per lot.
+# Holds for IC Markets, XM, Pepperstone, most MT5 brokers.
+XAUUSD_DOLLAR_PER_LOT = 100.0
+
 # --- Bot Loop ---
 CHECK_INTERVAL = 60        # seconds between each analysis cycle

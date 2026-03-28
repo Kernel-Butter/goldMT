@@ -1,16 +1,18 @@
-from config import RISK_PER_TRADE, MAX_OPEN_TRADES, DAILY_LOSS_LIMIT
+from config import RISK_PER_TRADE, MAX_OPEN_TRADES, DAILY_LOSS_LIMIT, XAUUSD_DOLLAR_PER_LOT
 
 
-def calc_lot(balance: float, sl_pips: float, pip_value: float = 1.0) -> float:
+def calc_lot(balance: float, sl_dollars: float) -> float:
     """
     Calculate lot size based on risk %.
-    For XAUUSD: 1 pip = $0.01 per 0.01 lot (micro) — pip_value per lot ~ $1 for standard.
-    Default pip_value=1.0 (adjust per broker).
+    sl_dollars: SL distance in price dollars (e.g. 20 means price moves $20 against you).
+    XAUUSD: 1 standard lot = 100 oz, so $1 move = $100 P&L per lot.
+    Formula: lot = risk_amount / (sl_dollars * XAUUSD_DOLLAR_PER_LOT)
+    Example: $10k balance, 1% risk = $100 budget, $20 SL → lot = 100 / (20*100) = 0.05
     """
-    if sl_pips <= 0:
+    if sl_dollars <= 0:
         return 0.01
     risk_amount = balance * RISK_PER_TRADE
-    lot = risk_amount / (sl_pips * pip_value)
+    lot = risk_amount / (sl_dollars * XAUUSD_DOLLAR_PER_LOT)
     lot = round(lot, 2)
     # Clamp between 0.01 and 5.0 lots
     return max(0.01, min(lot, 5.0))
@@ -37,8 +39,8 @@ if __name__ == "__main__":
     equity  = 9800.0
     positions = []
 
-    lot = calc_lot(balance, sl_pips=25)
-    print(f"Lot size for $10k balance, 25 pip SL: {lot}")
+    lot = calc_lot(balance, sl_dollars=20)
+    print(f"Lot size for $10k balance, $20 SL: {lot}  (expect ~0.05)")
 
     allowed, reason = can_trade(positions, balance, equity)
     print(f"Can trade: {allowed} {reason or ''}")

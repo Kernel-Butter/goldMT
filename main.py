@@ -50,27 +50,27 @@ def run():
             market_data = build_market_data()
 
             # 4. AI analysis
-            decision = analyst.analyze(market_data)
+            decision   = analyst.analyze(market_data)
             action     = decision["action"]
             confidence = decision["confidence"]
-            sl_pips    = decision["sl_pips"]
-            tp_pips    = decision["tp_pips"]
-            print(f"  AI: {action} | Confidence: {confidence:.0%} | SL: {sl_pips}p | TP: {tp_pips}p")
+            sl_dist    = decision["sl_dollars"]   # dollar distance from entry
+            tp_dist    = decision["tp_dollars"]   # dollar distance from entry
+            print(f"  AI: {action} | Confidence: {confidence:.0%} | SL: ${sl_dist} | TP: ${tp_dist}")
             print(f"  Reason: {decision['reason']}")
 
             # 5. Execute if not HOLD and confidence is high enough
             if action in ("BUY", "SELL") and confidence >= 0.65:
-                tick = bridge.get_tick(SYMBOL)
+                tick  = bridge.get_tick(SYMBOL)
                 price = tick["ask"] if action == "BUY" else tick["bid"]
 
                 if action == "BUY":
-                    sl = round(price - sl_pips, 2)
-                    tp = round(price + tp_pips, 2)
+                    sl = round(price - sl_dist, 2)
+                    tp = round(price + tp_dist, 2)
                 else:
-                    sl = round(price + sl_pips, 2)
-                    tp = round(price - tp_pips, 2)
+                    sl = round(price + sl_dist, 2)
+                    tp = round(price - tp_dist, 2)
 
-                lot = risk.calc_lot(balance, sl_pips)
+                lot    = risk.calc_lot(balance, sl_dist)
                 result = bridge.place_order(SYMBOL, action, lot, sl, tp)
                 print(f"  ORDER: {action} {lot} lots @ {price} | SL {sl} | TP {tp}")
                 print(f"  Result: {result}")
