@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "goldbot-context": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "REPLACE_WITH_YOUR_PROJECT_PATH/agents"
+      ]
+    }
+  }
+}

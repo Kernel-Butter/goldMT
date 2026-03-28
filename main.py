@@ -1,12 +1,12 @@
 import time
-import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 import mt5_bridge as bridge
 import groq_analyst as analyst
 import risk_manager as risk
 from technical import get_indicators
 from config import SYMBOL, TIMEFRAMES, CHECK_INTERVAL
+from db import init_db, log_decision, log_trade, log_equity
 
 
 def build_market_data() -> dict:
@@ -27,7 +27,8 @@ def build_market_data() -> dict:
 
 
 def run():
-    print(f"[{datetime.utcnow()}] GoldBot started — {SYMBOL}")
+    init_db()
+    print(f"[{datetime.now(timezone.utc)}] GoldBot started — {SYMBOL}")
 
     while True:
         try:
@@ -37,7 +38,8 @@ def run():
             balance   = account["balance"]
             equity    = account["equity"]
 
-            print(f"\n[{datetime.utcnow()}] Balance: ${balance:.2f} | Equity: ${equity:.2f} | Open: {len(positions)}")
+            log_equity(balance, equity)
+            print(f"\n[{datetime.now(timezone.utc)}] Balance: ${balance:.2f} | Equity: ${equity:.2f} | Open: {len(positions)}")
 
             # 2. Risk check
             allowed, reason = risk.can_trade(positions, balance, equity)
@@ -55,6 +57,7 @@ def run():
             confidence = decision["confidence"]
             sl_dist    = decision["sl_dollars"]   # dollar distance from entry
             tp_dist    = decision["tp_dollars"]   # dollar distance from entry
+            log_decision(action, confidence, decision["reason"], sl_dist, tp_dist, balance, equity)
             print(f"  AI: {action} | Confidence: {confidence:.0%} | SL: ${sl_dist} | TP: ${tp_dist}")
             print(f"  Reason: {decision['reason']}")
 
@@ -72,6 +75,8 @@ def run():
 
                 lot    = risk.calc_lot(balance, sl_dist)
                 result = bridge.place_order(SYMBOL, action, lot, sl, tp)
+                if "ticket" in result:
+                    log_trade(action, lot, price, sl, tp, result["ticket"])
                 print(f"  ORDER: {action} {lot} lots @ {price} | SL {sl} | TP {tp}")
                 print(f"  Result: {result}")
             else:
