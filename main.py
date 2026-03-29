@@ -169,25 +169,36 @@ def run():
 
             # 7. Execute if not HOLD and confidence is high enough
             if action in ("BUY", "SELL") and confidence >= 0.65:
-                if spread is None:
-                    tick = bridge.get_tick(SYMBOL)
-                    spread = round(tick["ask"] - tick["bid"], 2)
-                price = tick["ask"] if action == "BUY" else tick["bid"]
-
-                if action == "BUY":
-                    sl = round(price - sl_dist, 2)
-                    tp = round(price + tp_dist, 2)
+                # ── Session filter: only trade London + Overlap ──────────────
+                if session not in ("london", "overlap"):
+                    print(f"  SKIP — session '{session}' not tradeable (london/overlap only)")
                 else:
-                    sl = round(price + sl_dist, 2)
-                    tp = round(price - tp_dist, 2)
+                    # ── ATR-locked SL/TP (enforces minimum 2:1 RR) ──────────
+                    h1_atr = market_data.get("H1", {}).get("atr", 0)
+                    if h1_atr > 2:  # sanity check — XAUUSD ATR should always be > $2
+                        sl_dist = round(h1_atr * 1.0, 2)
+                        tp_dist = round(h1_atr * 2.0, 2)
+                        print(f"  ATR-locked: SL=${sl_dist} TP=${tp_dist} (H1 ATR=${h1_atr:.2f})")
 
-                lot    = risk.calc_lot(balance, sl_dist)
-                result = bridge.place_order(SYMBOL, action, lot, sl, tp)
-                if "ticket" in result:
-                    log_trade(action, lot, price, sl, tp, result["ticket"], decision_id)
-                    open_since[result["ticket"]] = time.time()
-                print(f"  ORDER: {action} {lot} lots @ {price} | SL {sl} | TP {tp}")
-                print(f"  Result: {result}")
+                    if spread is None:
+                        tick = bridge.get_tick(SYMBOL)
+                        spread = round(tick["ask"] - tick["bid"], 2)
+                    price = tick["ask"] if action == "BUY" else tick["bid"]
+
+                    if action == "BUY":
+                        sl = round(price - sl_dist, 2)
+                        tp = round(price + tp_dist, 2)
+                    else:
+                        sl = round(price + sl_dist, 2)
+                        tp = round(price - tp_dist, 2)
+
+                    lot    = risk.calc_lot(balance, sl_dist)
+                    result = bridge.place_order(SYMBOL, action, lot, sl, tp)
+                    if "ticket" in result:
+                        log_trade(action, lot, price, sl, tp, result["ticket"], decision_id)
+                        open_since[result["ticket"]] = time.time()
+                    print(f"  ORDER: {action} {lot} lots @ {price} | SL {sl} | TP {tp}")
+                    print(f"  Result: {result}")
             else:
                 print(f"  No trade — action={action}, confidence={confidence:.0%}")
 

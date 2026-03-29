@@ -225,6 +225,36 @@ def get_stats() -> dict:
     }
 
 
+def get_chart_trades(limit: int = 200) -> pd.DataFrame:
+    """Trades joined with decision context — used for chart overlays."""
+    conn = sqlite3.connect(DB_PATH)
+    df = pd.read_sql("""
+        SELECT
+            t.action,
+            t.entry_price,
+            t.timestamp   AS entry_time,
+            t.sl,
+            t.tp,
+            t.exit_price,
+            t.exit_time,
+            t.pnl_dollars,
+            t.close_reason,
+            t.status,
+            dc.h1_rsi,
+            dc.h4_rsi,
+            dc.h1_atr,
+            d.confidence,
+            d.reason
+        FROM trades t
+        LEFT JOIN decision_context dc ON t.decision_id = dc.decision_id
+        LEFT JOIN decisions d          ON t.decision_id = d.id
+        ORDER BY t.id DESC
+        LIMIT ?
+    """, conn, params=(limit,))
+    conn.close()
+    return df
+
+
 def get_session_stats() -> pd.DataFrame:
     """Win rate and avg P&L broken down by trading session."""
     conn = sqlite3.connect(DB_PATH)
