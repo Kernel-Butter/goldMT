@@ -1,0 +1,216 @@
+{
+  "_comment": "Single source of truth for strategy state. Edit manually or run: python agents/strategy_tracker.py --log. The dashboard reads this live.",
+
+  "current": {
+    "name": "GoldBot — Phase 3",
+    "version": "3.0",
+    "last_updated": "2026-04-03",
+    "phase_summary": "Trend-following on XAUUSD. AI confirms entries after 5 pre-filters eliminate bad setups. ATR-locked 2:1 risk-reward on every trade.",
+    "this_week": {
+      "focus": "Validating ADX filter effectiveness — checking if ADX > 20 gate is correctly removing choppy/ranging markets before AI is called.",
+      "hypothesis": "Removing ranging markets should lift win rate above 60% on trending sessions.",
+      "watch_metric": "Win rate on London + Overlap sessions"
+    },
+    "filters": [
+      {
+        "id": "session_gate",
+        "name": "Session Gate",
+        "status": "active",
+        "plain_english": "The bot only trades during the London session (08:00–13:00 UTC) and the London/New York overlap (13:00–16:00 UTC). Outside these hours the gold market is too quiet or too thin to trade reliably.",
+        "why": "These two sessions have the highest trading volume for gold, which means prices move more cleanly and are less likely to reverse randomly.",
+        "threshold": "Allowed: london, overlap — Blocked: asian, new_york, dead",
+        "blocks_approx": "~67% of all cycles"
+      },
+      {
+        "id": "adx_filter",
+        "name": "ADX Trend Filter",
+        "status": "active",
+        "plain_english": "ADX measures how strongly the market is trending versus just moving sideways. If the score is below 20, the market is choppy and the bot skips the cycle.",
+        "why": "Trend-following strategies lose money in sideways markets. ADX below 20 means no clear direction — any signal is likely a false alarm.",
+        "threshold": "H1 ADX (14-period) must be ≥ 20",
+        "blocks_approx": "~20% of cycles that passed session gate"
+      },
+      {
+        "id": "ema_alignment",
+        "name": "EMA Alignment Gate",
+        "status": "active",
+        "plain_english": "Two moving averages (EMA 20 and EMA 50) are checked on both the 1-hour and 4-hour charts. The bot only trades if both timeframes agree on direction. If they disagree, it waits.",
+        "why": "Requiring H1+H4 agreement ensures the bot trades with momentum across timeframes, not against a higher-timeframe trend.",
+        "threshold": "EMA20 > EMA50 on both H1 and H4 (bullish), or both bearish",
+        "blocks_approx": "~variable"
+      },
+      {
+        "id": "price_change_gate",
+        "name": "Price Change Gate",
+        "status": "active",
+        "plain_english": "If price hasn't moved at least 30% of the average candle range (ATR) since the last AI call, the bot skips — nothing new has happened.",
+        "why": "Prevents calling the AI on an unchanged market, which wastes API budget and risks duplicate trades.",
+        "threshold": "Price must move ≥ 0.3 × H1 ATR since last AI call",
+        "blocks_approx": "~variable"
+      },
+      {
+        "id": "cooldown",
+        "name": "Post-Trade Cooldown",
+        "status": "active",
+        "plain_english": "After any trade is placed, the bot pauses for 5 minutes before considering another one.",
+        "why": "Prevents entering multiple trades on the same market move, which would multiply risk beyond the 1% limit.",
+        "threshold": "300 seconds after last order",
+        "blocks_approx": "situational"
+      },
+      {
+        "id": "confidence_threshold",
+        "name": "AI Confidence Threshold",
+        "status": "active",
+        "plain_english": "The AI must be at least 65% confident before a trade is placed. Below 65%, the bot logs the decision but does not execute.",
+        "why": "Low-confidence AI decisions perform similarly to random entries. Only higher-confidence calls extract the AI's edge.",
+        "threshold": "Confidence ≥ 65% to execute",
+        "blocks_approx": "~varies"
+      }
+    ],
+    "indicators": [
+      {
+        "name": "RSI (Relative Strength Index)",
+        "timeframes": ["H1", "H4", "D1"],
+        "period": 14,
+        "role": "Sent to AI as context — not a hard filter",
+        "plain_english": "Measures whether Gold has been bought too much (overbought, above 70) or sold too much (oversold, below 30). The AI uses this to judge whether a move has room to continue or is likely to reverse.",
+        "what_to_watch": "Extreme RSI values (< 30 or > 70) on H4 or D1 often precede strong reversals."
+      },
+      {
+        "name": "EMA 20 / EMA 50",
+        "timeframes": ["H1", "H4"],
+        "period": "20 and 50 candles",
+        "role": "Hard filter (EMA alignment gate) + AI context",
+        "plain_english": "Moving averages that smooth price noise to show the underlying trend. EMA 20 reacts faster, EMA 50 is slower. When EMA 20 is above EMA 50 on both H1 and H4, the trend is up.",
+        "what_to_watch": "A fresh EMA crossover (20 crossing 50) on H4 is one of the strongest signals."
+      },
+      {
+        "name": "ATR (Average True Range)",
+        "timeframes": ["H1", "H4"],
+        "period": 14,
+        "role": "SL/TP sizing + trade management",
+        "plain_english": "Measures how much Gold typically moves in a single candle. Used to set the stop loss (1× ATR below entry) and take profit (2× ATR above entry) — automatically adjusting to current volatility.",
+        "what_to_watch": "Very high ATR (>$15) means large position risk. H1 ATR below $2 is treated as bad data and ignored."
+      },
+      {
+        "name": "ADX (Average Directional Index)",
+        "timeframes": ["H1"],
+        "period": 14,
+        "role": "Hard filter — blocks ranging markets",
+        "plain_english": "Scores the strength of a trend from 0 to 100. Below 20 means no real trend. Above 25 means a strong trend. The bot only trades when ADX is above 20.",
+        "what_to_watch": "ADX rising from below 20 to above 25 on H1 is a good early trend signal."
+      }
+    ],
+    "entry_logic": [
+      "All pre-filters must pass (session, ADX ≥ 20, EMA alignment H1+H4, price change gate, cooldown)",
+      "AI (LLaMA 3.3 70B via Groq) receives H1, H4, D1 data — RSI, EMA, ATR, ADX + last 5 candles per timeframe",
+      "AI returns BUY, SELL, or HOLD with a confidence score and plain-English reason",
+      "If confidence ≥ 65% and action is BUY or SELL, the trade is placed",
+      "Stop loss = 1× H1 ATR from entry. Take profit = 2× H1 ATR. Minimum 2:1 risk-reward locked in."
+    ],
+    "exit_logic": [
+      "Phase 1 — Break-even: when profit reaches 1× original SL distance, stop loss moves to entry price (worst case = zero loss)",
+      "Phase 2 — ATR trail: once break-even fires, SL trails 1× ATR behind current price to lock in profits",
+      "Take profit: trade closes automatically at 2× ATR target",
+      "Stop loss: trade closes automatically if price reverses to SL level"
+    ],
+    "risk_rules": [
+      "1% of account balance risked per trade",
+      "Maximum 2 open trades at any time",
+      "3% daily drawdown limit — bot stops trading for the day if hit"
+    ],
+    "known_issues": [
+      "Session filter blocks New York session entirely — may miss strong momentum after London close",
+      "ADX threshold of 20 may be too conservative — some good trending setups filtered. Consider testing 17.",
+      "AI is not aware of major news events (CPI, NFP) — sharp news moves can hit stop losses"
+    ],
+    "disabled_ideas": [
+      {
+        "name": "News Block via ForexFactory API",
+        "reason": "Not implemented — would block trading 30 min before/after high-impact news"
+      }
+    ]
+  },
+
+  "future_plans": [
+    {
+      "priority": "high",
+      "title": "News Event Filter",
+      "description": "Block trading 30 min before and after high-impact news events (CPI, NFP, FOMC) by querying ForexFactory API. This should reduce stop-loss hits on sudden news spikes.",
+      "status": "not_started",
+      "added": "2026-04-03"
+    },
+    {
+      "priority": "medium",
+      "title": "Lower ADX Threshold Test",
+      "description": "Test ADX threshold at 17 instead of 20 to see if more trades are captured without sacrificing win rate. Run for 1 week and compare session win rates.",
+      "status": "not_started",
+      "added": "2026-04-03"
+    },
+    {
+      "priority": "medium",
+      "title": "New York Session Pilot",
+      "description": "Add New York session (16:00–21:00 UTC) as an allowed session but only on trending days (D1 ADX > 25). Currently all NY trades are blocked.",
+      "status": "not_started",
+      "added": "2026-04-03"
+    },
+    {
+      "priority": "low",
+      "title": "Confidence-Scaled Lot Size",
+      "description": "Scale position size with AI confidence — 0.5× lot at 65-75%, 1× at 75-85%, 1.5× at 85%+. Currently lot size is fixed by risk % regardless of confidence.",
+      "status": "not_started",
+      "added": "2026-04-03"
+    }
+  ],
+
+  "history": [
+    {
+      "date": "2026-04-03",
+      "version": "3.0",
+      "commit": "ef83bc6",
+      "title": "Phase 3 — ADX filter, 5-candle context, AI call pre-filters",
+      "summary": "Added ADX trend filter to block ranging markets. Expanded AI context to last 5 candles per timeframe. Added price-change gate and post-trade cooldown to reduce unnecessary AI calls.",
+      "changes": [
+        {"type": "added",   "item": "ADX filter — blocks when H1 ADX < 20 (ranging market)"},
+        {"type": "added",   "item": "5-candle OHLC context per timeframe sent to AI"},
+        {"type": "added",   "item": "Price change gate — skips AI if price moved < 0.3× ATR"},
+        {"type": "added",   "item": "Post-trade cooldown — 5 min pause after any order"},
+        {"type": "changed", "item": "EMA alignment now requires H1 AND H4 agreement (was H1-only)"}
+      ],
+      "outcome": "active",
+      "outcome_note": "Currently running — outcome pending enough trades to evaluate"
+    },
+    {
+      "date": "2026-03-01",
+      "version": "2.0",
+      "commit": "e20adff",
+      "title": "Phase 2 — Live chart, session filter, ATR-locked SL/TP",
+      "summary": "Added session filter restricting trading to London and Overlap only. Replaced fixed-dollar SL/TP with ATR-locked sizing for automatic volatility adjustment. Added live Plotly candlestick chart to dashboard.",
+      "changes": [
+        {"type": "added",   "item": "Session filter — london and overlap sessions only"},
+        {"type": "added",   "item": "ATR-locked SL/TP — 1× ATR stop, 2× ATR target (2:1 RR guaranteed)"},
+        {"type": "added",   "item": "Break-even stop — moves SL to entry when profit = 1× SL distance"},
+        {"type": "added",   "item": "ATR trailing stop — trails 1× ATR after break-even fires"},
+        {"type": "added",   "item": "Live candlestick chart in dashboard (Plotly/Streamlit)"},
+        {"type": "removed", "item": "Fixed dollar SL/TP values"}
+      ],
+      "outcome": "superseded",
+      "outcome_note": "Replaced by Phase 3. Win rate was ~52% — acceptable but ADX was not filtering ranging periods."
+    },
+    {
+      "date": "2026-02-01",
+      "version": "1.0",
+      "commit": "52be720",
+      "title": "Phase 1 — Performance measurement and trade exit tracking",
+      "summary": "Added trade exit tracking to the database, P&L logging, and the first performance metrics to the dashboard. Bot could now measure its own performance over time.",
+      "changes": [
+        {"type": "added",   "item": "Trade exit tracking — pnl_dollars, exit_price, close_reason, duration logged"},
+        {"type": "added",   "item": "Equity history logging every cycle"},
+        {"type": "added",   "item": "Win rate, avg P&L, session stats on dashboard"},
+        {"type": "added",   "item": "close_reason detection — sl_hit, tp_hit, manual"}
+      ],
+      "outcome": "superseded",
+      "outcome_note": "Data infrastructure still in use. Strategy logic replaced by Phase 2."
+    }
+  ]
+}
