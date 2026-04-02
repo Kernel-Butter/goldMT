@@ -3,6 +3,23 @@
 
 ---
 
+## Resuming on a New Machine
+
+Memory and project context are stored **inside the repo** at `.claude/memory/`.
+On a fresh clone, read these files at the start of every session:
+
+```
+.claude/memory/MEMORY.md              ← index of all memories
+.claude/memory/project_goldbot.md     ← project goals, architecture, critical rules
+.claude/memory/feedback_*.md          ← user preferences and workflow feedback
+```
+
+Also read:
+- `agents/context/CODEBASE_MAP.md` — full map of every file and function
+- `strategy_info.json` — current strategy state, future plans, change history
+
+---
+
 ## What This Project Is
 
 GoldBot is an AI-powered XAUUSD (Gold) trading bot for MetaTrader 5.

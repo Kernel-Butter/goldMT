@@ -8,7 +8,13 @@ __pycache__/
 .DS_Store
 goldbot.db
 
-# Claude Code — all local config and session files are machine-specific
-.claude/
+# Claude Code — track memory, commands, and project context for portability
+# Tracked:  .claude/memory/       (session context, resumes on new machines)
+#           .claude/commands/      (custom slash commands)
+#           .claude/settings.json.example  (template for new machines)
+# Ignored:  machine-specific and ephemeral files only
+.claude/settings.json
+.claude/settings.local.json
+.claude/worktrees/
 package.json
 package-lock.json
