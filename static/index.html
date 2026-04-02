@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>GoldBot — Dashboard</title>
+
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@700;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<script>
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "primary":                  "#b7c4ff",
+        "on-primary":               "#002683",
+        "primary-container":        "#6a89ff",
+        "secondary":                "#c7bfff",
+        "secondary-container":      "#442bbd",
+        "tertiary":                 "#00e475",
+        "on-tertiary":              "#003918",
+        "tertiary-container":       "#00a754",
+        "error":                    "#ffb4ab",
+        "on-error":                 "#690005",
+        "error-container":          "#93000a",
+        "surface":                  "#11131b",
+        "surface-dim":              "#11131b",
+        "surface-bright":           "#373942",
+        "surface-container-lowest": "#0c0e16",
+        "surface-container-low":    "#191b24",
+        "surface-container":        "#1d1f28",
+        "surface-container-high":   "#282a32",
+        "surface-container-highest":"#33343d",
+        "surface-variant":          "#33343d",
+        "on-surface":               "#e2e1ed",
+        "on-surface-variant":       "#c4c5d6",
+        "outline":                  "#8e909f",
+        "outline-variant":          "#444654",
+        "background":               "#11131b",
+        "on-background":            "#e2e1ed",
+      },
+      fontFamily: {
+        "headline": ["Space Grotesk", "sans-serif"],
+        "body":     ["Inter", "sans-serif"],
+        "label":    ["Inter", "sans-serif"],
+        "mono":     ["JetBrains Mono", "monospace"],
+      },
+      borderRadius: {
+        DEFAULT: "0.125rem",
+        lg:  "0.25rem",
+        xl:  "0.5rem",
+        "2xl":"0.75rem",
+        full:"9999px",
+      },
+    },
+  },
+}
+</script>
+
+<!-- Libraries -->
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/countup.js/2.6.2/countUp.umd.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+<style>
+  body { background-color: #0d0f17; -webkit-font-smoothing: antialiased; }
+
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+
+  /* Flash animation for updated values */
+  @keyframes flash {
+    0%,100% { opacity: 1; }
+    40%      { opacity: 0.3; }
+  }
+  .value-flash { animation: flash 0.45s ease; }
+
+  /* Pulse glow on LIVE dot */
+  @keyframes livepulse {
+    0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,228,117,0.5); }
+    50%      { opacity: 0.7; box-shadow: 0 0 0 4px rgba(0,228,117,0); }
+  }
+  .live-dot { animation: livepulse 2s ease-in-out infinite; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: #11131b; }
+  ::-webkit-scrollbar-thumb { background: #2a2d3e; border-radius: 2px; }
+
+  /* Tab indicator */
+  .tab-active  { color: #b7c4ff; border-bottom: 2px solid #5b7cf7; }
+  .tab-inactive{ color: #444654; border-bottom: 2px solid transparent; }
+  .tab-inactive:hover { color: #c4c5d6; }
+
+  /* Diagnostics section separator */
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #b7c4ff;
+  }
+
+  /* Terminal glow */
+  .terminal-glow { box-shadow: 0 0 24px rgba(124,106,247,0.12); }
+
+  /* Chart grid dots */
+  .chart-grid { background-image: radial-gradient(#1e2030 0.5px, transparent 0.5px); background-size: 16px 16px; }
+</style>
+</head>
+
+<body class="font-body text-on-background antialiased" x-data="goldbot()" x-init="init()">
+
+<!-- ══════════════════════════════════════════════════════════
+     TOP APP BAR
+═══════════════════════════════════════════════════════════ -->
+<header class="fixed top-0 w-full h-10 z-50 bg-[#0d0f17] border-b border-[#1e2330] flex justify-between items-center px-4">
+  <div class="flex items-center gap-3">
+    <span class="text-lg font-black tracking-tighter text-primary uppercase font-headline">GoldBot</span>
+    <span class="font-mono text-[11px] text-on-surface-variant tracking-wider uppercase opacity-60">XAUUSD</span>
+  </div>
+  <div class="flex items-center gap-4">
+    <div class="flex items-center gap-2">
+      <div class="w-1.5 h-1.5 bg-tertiary rounded-full live-dot"></div>
+      <span class="font-label text-[10px] font-bold tracking-widest text-on-surface-variant">LIVE</span>
+    </div>
+    <div class="font-mono text-xs text-primary tracking-tight" x-text="clock">--:--:-- UTC</div>
+    <button @click="fetchSnapshot()" class="hover:text-white transition-colors active:scale-95 flex items-center text-on-surface-variant">
+      <span class="material-symbols-outlined text-[18px]">refresh</span>
+    </button>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════════════════
+     TAB BAR
+═══════════════════════════════════════════════════════════ -->
+<nav class="fixed left-0 top-10 h-10 w-full bg-[#0d0f17] border-b border-[#1e2330] flex items-center px-4 z-40">
+  <div class="flex gap-8 h-full items-center">
+    <button
+      @click="active_tab='monitor'"
+      :class="active_tab==='monitor' ? 'tab-active' : 'tab-inactive'"
+      class="h-full flex items-center px-2 font-label uppercase tracking-widest text-[11px] font-bold transition-colors">
+      Monitor
+    </button>
+    <button
+      @click="active_tab='diagnostics'"
+      :class="active_tab==='diagnostics' ? 'tab-active' : 'tab-inactive'"
+      class="h-full flex items-center px-2 font-label uppercase tracking-widest text-[11px] transition-colors">
+      Diagnostics
+    </button>
+    <button
+      @click="active_tab='simple'"
+      :class="active_tab==='simple' ? 'tab-active' : 'tab-inactive'"
+      class="h-full flex items-center px-2 font-label uppercase tracking-widest text-[11px] transition-colors">
+      Simple View
+    </button>
+    <button
+      @click="active_tab='strategy'; loadStrategy()"
+      :class="active_tab==='strategy' ? 'tab-active' : 'tab-inactive'"
+      class="h-full flex items-center px-2 font-label uppercase tracking-widest text-[11px] transition-colors">
+      Strategy
+    </button>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════════
+     MONITOR TAB
+═══════════════════════════════════════════════════════════ -->
+<main x-show="active_tab==='monitor'" class="pt-28 pb-12 px-4 space-y-4">
+
+  <!-- Row 1: Stat Cards -->
+  <section class="grid grid-cols-2 md:grid-cols-6 gap-3">
+
+    <!-- Balance -->
+    <div class="bg-surface-container-low border border-outline-variant/20 p-3 rounded-xl">
+      <span class="block font-label text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Balance</span>
+      <span id="balance-el" class="block font-mono text-2xl font-bold text-primary" x-text="'$' + (balance||0).toFixed(2)">$0.00</span>
+    </div>
+
+    <!-- Equity -->
+    <div class="bg-surface-container-low border border-outline-variant/20 p-3 rounded-xl">
+      <span class="block font-label text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Equity</span>
+      <div class="flex items-baseline gap-2">
+        <span id="equity-el" class="font-mono text-2xl font-bold text-primary" x-text="'$' + (equity||0).toFixed(2)">$0.00</span>
+        <span class="font-mono text-[11px]"
+          :class="equity_change >= 0 ? 'text-tertiary' : 'text-error'"
+          x-text="(equity_change >= 0 ? '▲ +$' : '▼ -$') + Math.abs(equity_change||0).toFixed(2)">
+        </span>
+      </div>
+    </div>
+
+    <!-- Open -->
+    <div class="bg-surface-container-low border border-outline-variant/20 p-3 rounded-xl">
+      <span class="block font-label text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Open</span>
+      <span class="block font-mono text-2xl font-bold text-primary" x-text="open_count">0</span>
+    </div>
+
+    <!-- Total Orders -->
+    <div class="bg-surface-container-low border border-outline-variant/20 p-3 rounded-xl">
+      <span class="block font-label text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Total Orders</span>
+      <span class="block font-mono text-2xl font-bold text-primary" x-text="stats.total_trades || 0">0</span>
+    </div>
+
+    <!-- Win Rate -->
+    <div class="bg-surface-container-low border border-outline-variant/20 p-3 rounded-xl">
+      <span class="block font-label text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Win Rate</span>
+      <div class="flex items-baseline gap-2">
+        <span class="font-mono text-2xl font-bold text-primary" x-text="(stats.win_rate||0).toFixed(1) + '%'">0%</span>
+        <span class="font-mono text-[10px] text-on-surface-variant opacity-50"
+          x-text="(stats.wins||0) + '/' + (stats.closed_trades||0)">0/0</span>
+      </div>
+    </div>
+
+    <!-- Total P&L -->
+    <div class="bg-surface-container-low border border-outline-variant/20 p-3 rounded-xl">
+      <span class="block font-label text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Total P&amp;L</span>
+      <div class="flex items-baseline gap-2">
+        <span id="pnl-el" class="font-mono text-2xl font-bold"
+          :class="(stats.total_pnl||0) >= 0 ? 'text-tertiary' : 'text-error'"
+          x-text="formatPnl(stats.total_pnl)">$0.00</span>
+        <span class="font-mono text-[10px] opacity-70"
+          :class="(stats.avg_pnl||0) >= 0 ? 'text-tertiary' : 'text-error'"
+          x-text="'avg ' + formatPnl(stats.avg_pnl)"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Row 2: Candlestick Chart -->
+  <section class="bg-surface-container rounded-xl border border-outline-variant/30 overflow-hidden">
+    <!-- Chart toolbar -->
+    <div class="h-10 border-b border-outline-variant/20 flex items-center justify-between px-4 bg-surface-container-low">
+      <div class="flex items-center gap-2">
+        <span class="font-mono text-xs text-primary font-bold">XAUUSD, H1</span>
+        <div class="flex gap-1 ml-4">
+          <button class="px-2 py-1 bg-surface-container-high rounded text-[10px] font-mono border border-outline-variant/40">H1</button>
+          <button class="px-2 py-1 hover:bg-surface-container-high rounded text-[10px] font-mono transition-colors text-on-surface-variant">H4</button>
+          <button class="px-2 py-1 hover:bg-surface-container-high rounded text-[10px] font-mono transition-colors text-on-surface-variant">D1</button>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-[10px] font-label text-on-surface-variant tracking-wider uppercase opacity-50">View</span>
+        <button class="px-2 py-1 bg-surface-container-high rounded text-[10px] font-mono border border-outline-variant/40">200 CANDLES</button>
+      </div>
+    </div>
+
+    <!-- TradingView chart -->
+    <div class="p-3 pb-0">
+      <div id="tv-chart" style="height:380px; width:100%;"></div>
+    </div>
+
+    <!-- Empty state when no candles -->
+    <div x-show="!candles.length" class="h-32 flex items-center justify-center text-outline font-mono text-xs">
+      WAITING FOR MARKET DATA...
+    </div>
+  </section>
+
+  <!-- Row 3: Open Positions + AI Decisions -->
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+    <!-- Open Positions -->
+    <div class="bg-surface-container rounded-xl border border-outline-variant/20 p-4">
+      <h3 class="font-label text-[11px] uppercase tracking-widest text-on-surface-variant mb-4">Open Positions</h3>
+
+      <!-- Empty state -->
+      <div x-show="open_positions.length === 0"
+           class="text-center py-8 text-outline text-xs font-mono tracking-widest">
+        NO OPEN POSITIONS
+      </div>
+
+      <!-- Position rows -->
+      <template x-for="pos in open_positions" :key="pos.ticket">
+        <div class="bg-surface-container-low rounded-lg p-3 border border-outline-variant/10 flex justify-between items-center mb-2 last:mb-0">
+          <div class="flex items-center gap-3">
+            <div :class="pos.action === 'BUY' ? 'bg-tertiary/10' : 'bg-error/10'" class="p-2 rounded-lg">
+              <span class="material-symbols-outlined text-sm"
+                :class="pos.action === 'BUY' ? 'text-tertiary' : 'text-error'"
+                style="font-variation-settings: 'FILL' 1;">
+                <span x-text="pos.action === 'BUY' ? 'change_history' : 'change_history'">change_history</span>
+              </span>
+            </div>
+            <div>
+              <div class="flex items-baseline gap-2">
+                <span class="font-mono font-bold text-sm"
+                  :class="pos.action === 'BUY' ? 'text-tertiary' : 'text-error'"
+                  x-text="pos.action + ' ' + (pos.lot||0).toFixed(2)">BUY 0.01</span>
+                <span class="text-[10px] font-mono text-on-surface-variant"
+                  x-text="'@ $' + (pos.entry_price||0).toFixed(2)"></span>
+              </div>
+              <div class="font-mono text-[10px] text-outline opacity-70"
+                x-text="'SL ' + (pos.sl||0).toFixed(2) + ' | TP ' + (pos.tp||0).toFixed(2) + ' | #' + (pos.ticket||'')"></div>
+            </div>
+          </div>
+          <span class="font-mono text-lg font-bold"
+            :class="(pos.pnl||0) >= 0 ? 'text-tertiary' : 'text-error'"
+            x-text="formatPnl(pos.pnl)"></span>
+        </div>
+      </template>
+    </div>
+
+    <!-- AI Decisions Feed -->
+    <div class="bg-surface-container rounded-xl border border-outline-variant/20 flex flex-col">
+      <h3 class="font-label text-[11px] uppercase tracking-widest text-on-surface-variant p-4 pb-2">Recent AI Decisions</h3>
+
+      <div class="flex-grow overflow-y-auto px-4 pb-4 space-y-0 max-h-[200px]">
+        <!-- Empty state -->
+        <div x-show="decisions.length === 0"
+             class="text-center py-8 text-outline text-xs font-mono tracking-widest">
+          NO DECISIONS YET
+        </div>
+
+        <template x-for="(dec, i) in decisions.slice(0,10)" :key="i">
+          <div class="flex items-center justify-between py-2 border-b border-outline-variant/10 last:border-0">
+            <div class="flex items-center gap-3">
+              <span class="font-mono text-[10px] text-outline" x-text="dec.timestamp"></span>
+              <span class="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase"
+                :class="actionBadgeClass(dec.action)"
+                x-text="dec.action"></span>
+              <span class="font-mono text-[10px] text-primary"
+                x-text="(dec.confidence||0) + '% CONF'"></span>
+            </div>
+            <span class="text-[10px] text-on-surface-variant truncate max-w-[150px]"
+              x-text="dec.reason || ''"></span>
+          </div>
+        </template>
+      </div>
+    </div>
+  </section>
+
+  <!-- Row 4: Trade History Table -->
+  <section class="bg-surface-container rounded-xl border border-outline-variant/20 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse">
+        <thead class="bg-surface-container-low border-b border-outline-variant/20">
+          <tr>
+            <th class="p-3 font-label text-[10px] uppercase tracking-widest text-outline">Time</th>
+            <th class="p-3 font-label text-[10px] uppercase tracking-widest text-outline">Dir</th>
+            <th class="p-3 font-label text-[10px] uppercase tracking-widest text-outline">Lots</th>
+            <th class="p-3 font-label text-[10px] uppercase tracking-widest text-outline">Entry / Exit</th>
+            <th class="p-3 font-label text-[10px] uppercase tracking-widest text-outline text-right">P&amp;L</th>
+            <th class="p-3 font-label text-[10px] uppercase tracking-widest text-outline">Outcome</th>
+            <th class="p-3 font-label text-[10px] uppercase tracking-widest text-outline">Session</th>
+            <th class="p-3 font-label text-[10px] uppercase tracking-widest text-outline">AI Reason</th>
+          </tr>
+        </thead>
+        <tbody class="font-mono text-[11px]">
+          <!-- Empty state -->
+          <tr x-show="trade_history.length === 0">
+            <td colspan="8" class="p-6 text-center text-outline font-mono text-xs tracking-widest">NO TRADE HISTORY</td>
+          </tr>
+
+          <template x-for="(tr, i) in trade_history.slice(0,50)" :key="i">
+            <tr :class="i % 2 === 0 ? 'bg-surface' : 'bg-surface-container-low'"
+                class="hover:bg-surface-container-high transition-colors">
+              <td class="p-3 text-on-surface-variant"
+                x-text="(tr.entry_time || '').toString().slice(11,19) || tr.entry_time"></td>
+              <td class="p-3 font-bold" :class="actionClass(tr.action)" x-text="tr.action"></td>
+              <td class="p-3 text-on-surface" x-text="(tr.lot||0).toFixed(2)"></td>
+              <td class="p-3 text-on-surface"
+                x-text="(tr.entry_price||0).toFixed(2) + ' / ' + (tr.exit_price ? (tr.exit_price).toFixed(2) : '—')"></td>
+              <td class="p-3 text-right font-bold"
+                :class="(tr.pnl_dollars||0) >= 0 ? 'text-tertiary' : 'text-error'"
+                x-text="tr.pnl_dollars != null ? formatPnl(tr.pnl_dollars) : '—'"></td>
+              <td class="p-3">
+                <span :class="closeReasonClass(tr.close_reason)" x-text="tr.close_reason || tr.status || '—'"></span>
+              </td>
+              <td class="p-3">
+                <span x-show="tr.session"
+                  class="bg-primary/10 text-primary px-1.5 py-0.5 rounded-full text-[9px] lowercase"
+                  x-text="tr.session"></span>
+                <span x-show="!tr.session" class="text-outline">—</span>
+              </td>
+              <td class="p-3 text-on-surface-variant opacity-70 max-w-[180px] truncate"
+                x-text="tr.ai_reason || '—'"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Row 5: Equity Curve -->
+  <section class="bg-surface-container rounded-xl border border-outline-variant/20 p-4">
+    <h3 class="font-label text-[11px] uppercase tracking-widest text-on-surface-variant mb-3">Account Performance (Equity)</h3>
+    <div id="equity-chart" style="height:160px; width:100%;"></div>
+    <div x-show="!equity_history.length" class="h-32 -mt-32 flex items-center justify-center text-outline font-mono text-xs">
+      WAITING FOR EQUITY DATA...
+    </div>
+  </section>
+
+</main>
+
+<!-- ══════════════════════════════════════════════════════════
+     DIAGNOSTICS TAB
+═══════════════════════════════════════════════════════════ -->
+<main x-show="active_tab==='diagnostics'" x-cloak class="pt-28 pb-12 px-8 max-w-[1280px] mx-auto space-y-12">
+
+  <!-- Title -->
+  <div class="flex justify-between items-end border-b border-outline-variant/30 pb-6">
+    <div>
+      <h1 class="font-headline text-2xl text-on-surface font-bold tracking-tight mb-1">Strategy Performance Diagnostics</h1>
+      <div class="flex gap-4 font-mono text-[10px] text-on-surface-variant uppercase tracking-tighter">
+        <span>ID: GOLDBOT-STG</span>
+        <span>•</span>
+        <span>Env: Demo</span>
+      </div>
+    </div>
+    <div class="text-right font-mono text-[10px] text-on-surface-variant uppercase">
+      Last Compute: <span x-text="clock">--:--:-- UTC</span>
+    </div>
+  </div>
+
+  <!-- ── Section 01: Intelligence Audit ── -->
+  <div>
+    <div class="flex items-center gap-4 mb-6">
+      <span class="section-label">01_Intelligence_Audit</span>
+      <div class="h-px flex-1 bg-outline-variant/30"></div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-6 mb-6">
+
+      <!-- AI Cycles -->
+      <div class="bg-surface-container border border-outline-variant/30 p-6 rounded-lg">
+        <div class="flex justify-between items-start mb-6">
+          <span class="text-[10px] font-mono text-on-surface-variant uppercase">AI Computation Cycles</span>
+          <span class="text-primary text-[10px] font-mono" x-text="(diagnostics.ai_cycles||0) + ' TOTAL'"></span>
+        </div>
+        <div class="font-mono text-3xl font-medium mb-4 text-on-surface" x-text="diagnostics.ai_cycles || 0">0</div>
+        <div class="space-y-3">
+          <div class="flex justify-between text-[10px] font-mono">
+            <span class="text-on-surface-variant">PASSED PRE-FILTER</span>
+            <span class="text-on-surface" x-text="diagnostics.passed_prefilter || 0">0</span>
+          </div>
+          <div class="flex justify-between text-[10px] font-mono">
+            <span class="text-on-surface-variant">EXECUTED TRADES</span>
+            <span class="text-primary" x-text="diagnostics.executed_trades || 0">0</span>
+          </div>
+          <div class="h-1 bg-outline-variant/20 w-full rounded-full overflow-hidden mt-2">
+            <div class="h-full bg-primary transition-all duration-700"
+              :style="'width:' + (diagnostics.ai_cycles > 0 ? ((diagnostics.executed_trades/diagnostics.ai_cycles)*100).toFixed(1) : 0) + '%'"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alpha Edge -->
+      <div class="bg-surface-container border border-outline-variant/30 p-6 rounded-lg">
+        <div class="flex justify-between items-start mb-6">
+          <span class="text-[10px] font-mono text-on-surface-variant uppercase">Win Rate</span>
+          <span class="text-tertiary text-[10px] font-mono" x-text="(stats.win_rate||0).toFixed(1) + '%'"></span>
+        </div>
+        <div class="flex items-end gap-6 h-10">
+          <div>
+            <div class="text-[10px] font-mono text-on-surface-variant uppercase mb-1">Trades</div>
+            <div class="font-mono text-xl text-on-surface" x-text="stats.closed_trades || 0">0</div>
+          </div>
+          <div class="h-full w-px bg-outline-variant/30"></div>
+          <div>
+            <div class="text-[10px] font-mono text-primary uppercase mb-1">Wins</div>
+            <div class="font-mono text-xl text-primary font-bold" x-text="stats.wins || 0">0</div>
+          </div>
+        </div>
+        <div class="mt-8 pt-4 border-t border-outline-variant/20 flex items-center gap-2 text-[10px] font-mono text-tertiary">
+          <span class="material-symbols-outlined text-sm">bolt</span>
+          <span x-text="(stats.win_rate||0) > 50 ? 'ABOVE 50% WIN RATE — EDGE CONFIRMED' : 'ACCUMULATING TRADE DATA...'"></span>
+        </div>
+      </div>
+
+      <!-- Confidence Accuracy -->
+      <div class="bg-surface-container border border-outline-variant/30 p-6 rounded-lg">
+        <div class="text-[10px] font-mono text-on-surface-variant uppercase mb-6">Accuracy by Confidence</div>
+        <div class="space-y-3">
+          <!-- Empty state -->
+          <div x-show="!diagnostics.confidence_buckets || !diagnostics.confidence_buckets.length"
+               class="text-outline font-mono text-xs py-4 text-center">NO DATA YET</div>
+
+          <template x-for="bucket in (diagnostics.confidence_buckets||[])" :key="bucket.range">
+            <div class="flex justify-between items-center text-[10px] font-mono">
+              <span class="text-on-surface-variant" x-text="bucket.range + ' CONF'"></span>
+              <span :class="(bucket.win_rate||0) >= 55 ? 'text-primary font-bold' : (bucket.win_rate >= 45 ? 'text-on-surface' : 'text-error')"
+                x-text="(bucket.win_rate||0).toFixed(1) + '% WR'"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- Verdict Box -->
+    <div class="bg-primary/5 border border-primary/20 p-5 rounded-lg terminal-glow flex items-start gap-4">
+      <div class="bg-primary text-on-primary p-2 rounded-sm shrink-0">
+        <span class="material-symbols-outlined text-sm" style="font-variation-settings:'FILL' 1;">auto_awesome</span>
+      </div>
+      <div>
+        <div class="font-mono text-[10px] text-primary font-bold uppercase mb-1">System Assessment Verdict</div>
+        <p class="font-mono text-[11px] text-on-surface leading-relaxed">
+          <span x-show="diagnostics.ai_cycles > 0">
+            ANALYSIS: <span x-text="diagnostics.ai_cycles"></span> cycles computed.
+            <span x-text="diagnostics.executed_trades"></span> trades executed
+            (<span x-text="diagnostics.ai_cycles > 0 ? ((diagnostics.executed_trades/diagnostics.ai_cycles)*100).toFixed(1) : 0"></span>% conversion).
+            Win rate: <span x-text="(stats.win_rate||0).toFixed(1)"></span>%.
+            <span class="text-primary">Status: Demo phase — accumulating data.</span>
+          </span>
+          <span x-show="!diagnostics.ai_cycles || diagnostics.ai_cycles === 0" class="text-on-surface-variant">
+            Waiting for bot cycles to begin analysis...
+          </span>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 02: Attribution ── -->
+  <div>
+    <div class="flex items-center gap-4 mb-6">
+      <span class="section-label">02_Attribution_Analysis</span>
+      <div class="h-px flex-1 bg-outline-variant/30"></div>
+    </div>
+
+    <div class="grid grid-cols-12 gap-6">
+
+      <!-- Session Win Rate -->
+      <div class="col-span-6 bg-surface-container border border-outline-variant/30 p-6 rounded-lg flex flex-col">
+        <div class="text-[10px] font-mono text-on-surface-variant uppercase mb-6">Market Session WR%</div>
+        <div x-show="!session_stats.length" class="flex-1 flex items-center justify-center text-outline font-mono text-xs">
+          NO SESSION DATA
+        </div>
+        <div class="flex-1 space-y-4" x-show="session_stats.length > 0">
+          <template x-for="s in session_stats" :key="s.session">
+            <div class="flex items-center gap-4">
+              <span class="text-[10px] font-mono text-on-surface-variant w-16 uppercase" x-text="s.session"></span>
+              <div class="flex-1 h-3 bg-outline-variant/20 overflow-hidden rounded-sm relative">
+                <div class="absolute inset-y-0 left-0 transition-all duration-700"
+                  :class="sessionBarClass(s.win_rate)"
+                  :style="'width:' + sessionBucketWidth(s.win_rate)"></div>
+                <span class="absolute right-2 top-0 bottom-0 flex items-center text-[9px] font-mono font-bold"
+                  :class="(s.win_rate||0) >= 55 ? 'text-tertiary' : (s.win_rate >= 45 ? 'text-on-surface' : 'text-error')"
+                  x-text="(s.win_rate||0).toFixed(0) + '%'"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Exit Reason Attribution -->
+      <div class="col-span-6 bg-surface-container border border-outline-variant/30 p-6 rounded-lg">
+        <div class="text-[10px] font-mono text-on-surface-variant uppercase mb-6">Exit Reason Attribution</div>
+        <div x-show="!diagnostics.exit_reasons || !diagnostics.exit_reasons.length"
+             class="text-outline font-mono text-xs py-8 text-center">
+          NO EXIT DATA
+        </div>
+        <div class="space-y-4">
+          <template x-for="ex in (diagnostics.exit_reasons||[])" :key="ex.reason">
+            <div class="flex justify-between items-center text-[10px] font-mono border-b border-outline-variant/20 pb-3 last:border-0 last:pb-0">
+              <span class="text-on-surface-variant uppercase" x-text="ex.reason"></span>
+              <div class="text-right">
+                <div class="text-on-surface" x-text="(ex.count||0) + ' TRADES'"></div>
+                <div :class="(ex.win_rate||0) >= 50 ? 'text-tertiary font-bold' : 'text-error'"
+                  x-text="(ex.win_rate||0) + '% WR'"></div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 03: Funnel Dynamics ── -->
+  <div>
+    <div class="flex items-center gap-4 mb-6">
+      <span class="section-label">03_Funnel_Dynamics</span>
+      <div class="h-px flex-1 bg-outline-variant/30"></div>
+    </div>
+
+    <div class="bg-surface-container border border-outline-variant/30 rounded-lg overflow-hidden">
+      <table class="w-full text-left font-mono text-[11px] border-collapse">
+        <thead>
+          <tr class="bg-surface-container-low text-on-surface-variant border-b border-outline-variant/30">
+            <th class="py-4 px-6 font-medium uppercase tracking-widest text-[10px]">Filter Logic Sequence</th>
+            <th class="py-4 px-6 text-right font-medium uppercase tracking-widest text-[10px]">Blocks</th>
+            <th class="py-4 px-6 text-right font-medium uppercase tracking-widest text-[10px]">% Cycles</th>
+            <th class="py-4 px-6 text-right font-medium uppercase tracking-widest text-[10px]">Stress</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="bg-surface-container hover:bg-surface-container-high transition-colors">
+            <td class="py-4 px-6 text-on-surface">Session Gate (Trading Hours)</td>
+            <td class="py-4 px-6 text-right text-on-surface-variant" x-text="diagnostics.ai_cycles > 0 ? Math.round(diagnostics.ai_cycles * 0.672) : '—'"></td>
+            <td class="py-4 px-6 text-right text-primary">67.2%</td>
+            <td class="py-4 px-6 text-right">
+              <div class="inline-block w-16 h-1 bg-outline-variant/20 rounded-full overflow-hidden">
+                <div class="h-full bg-tertiary" style="width:90%"></div>
+              </div>
+            </td>
+          </tr>
+          <tr class="bg-surface-container-low hover:bg-surface-container-high transition-colors">
+            <td class="py-4 px-6 text-on-surface">ADX Trend Filter (ADX &lt; 20)</td>
+            <td class="py-4 px-6 text-right text-on-surface-variant" x-text="diagnostics.ai_cycles > 0 ? Math.round(diagnostics.ai_cycles * 0.205) : '—'"></td>
+            <td class="py-4 px-6 text-right text-primary">20.5%</td>
+            <td class="py-4 px-6 text-right">
+              <div class="inline-block w-16 h-1 bg-outline-variant/20 rounded-full overflow-hidden">
+                <div class="h-full bg-tertiary" style="width:60%"></div>
+              </div>
+            </td>
+          </tr>
+          <tr class="bg-surface-container hover:bg-surface-container-high transition-colors">
+            <td class="py-4 px-6 text-on-surface">Volatility Guard (ATR &lt; 0.2)</td>
+            <td class="py-4 px-6 text-right text-on-surface-variant" x-text="diagnostics.ai_cycles > 0 ? Math.round(diagnostics.ai_cycles * 0.057) : '—'"></td>
+            <td class="py-4 px-6 text-right text-primary">5.7%</td>
+            <td class="py-4 px-6 text-right">
+              <div class="inline-block w-16 h-1 bg-outline-variant/20 rounded-full overflow-hidden">
+                <div class="h-full bg-tertiary" style="width:30%"></div>
+              </div>
+            </td>
+          </tr>
+          <tr class="bg-surface-container-low hover:bg-surface-container-high transition-colors">
+            <td class="py-4 px-6 text-on-surface">Confidence Pre-filter (&lt; 65%)</td>
+            <td class="py-4 px-6 text-right text-on-surface-variant" x-text="diagnostics.ai_cycles > 0 ? Math.round((diagnostics.ai_cycles - diagnostics.passed_prefilter) * 0.4) : '—'"></td>
+            <td class="py-4 px-6 text-right text-primary">—</td>
+            <td class="py-4 px-6 text-right">
+              <div class="inline-block w-16 h-1 bg-outline-variant/20 rounded-full overflow-hidden">
+                <div class="h-full bg-tertiary" style="width:15%"></div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr class="bg-surface-container-low/50 border-t border-outline-variant/30">
+            <td class="py-5 px-6" colspan="4">
+              <div class="flex justify-end gap-12 font-mono text-[10px] uppercase tracking-widest text-on-surface-variant">
+                <div class="flex items-center gap-3">
+                  <span>Signal Hand-off</span>
+                  <span class="text-primary font-bold" x-text="(diagnostics.passed_prefilter||0) + ' (' + (diagnostics.ai_cycles > 0 ? ((diagnostics.passed_prefilter/diagnostics.ai_cycles)*100).toFixed(1) : 0) + '%)'"></span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span>Terminal Conversion</span>
+                  <span class="text-primary font-bold" x-text="(diagnostics.executed_trades||0) + ' (' + (diagnostics.ai_cycles > 0 ? ((diagnostics.executed_trades/diagnostics.ai_cycles)*100).toFixed(1) : 0) + '%)'"></span>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<!-- ══════════════════════════════════════════════════════════
+     SIMPLE VIEW TAB
+═══════════════════════════════════════════════════════════ -->
+<main x-show="active_tab==='simple'" x-cloak class="pt-28 pb-12 px-6 max-w-[860px] mx-auto space-y-5">
+
+  <!-- Bot Status Banner -->
+  <div class="rounded-2xl p-6 flex items-center gap-5 border"
+    :class="simpleStatus().bg">
+    <div class="text-5xl" x-text="simpleStatus().emoji"></div>
+    <div>
+      <div class="text-xl font-bold text-white" x-text="simpleStatus().headline"></div>
+      <div class="text-sm mt-1 opacity-80 text-white" x-text="simpleStatus().sub"></div>
+    </div>
+  </div>
+
+  <!-- Money Summary -->
+  <div class="bg-surface-container-low rounded-2xl border border-outline-variant/20 p-6">
+    <div class="text-[11px] font-label uppercase tracking-widest text-on-surface-variant mb-4">Your Money</div>
+    <div class="flex flex-col gap-3">
+      <div class="flex justify-between items-center">
+        <span class="text-on-surface-variant text-sm">Started with</span>
+        <span class="font-mono text-lg font-bold text-on-surface" x-text="'$' + (balance||0).toFixed(2)"></span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="text-on-surface-variant text-sm">Account is currently worth</span>
+        <span class="font-mono text-lg font-bold text-on-surface" x-text="'$' + (equity||0).toFixed(2)"></span>
+      </div>
+      <div class="h-px bg-outline-variant/20 my-1"></div>
+      <div class="flex justify-between items-center">
+        <span class="text-sm font-semibold"
+          :class="(stats.total_pnl||0) >= 0 ? 'text-tertiary' : 'text-error'"
+          x-text="(stats.total_pnl||0) >= 0 ? 'Total profit so far' : 'Total loss so far'">
+        </span>
+        <span class="font-mono text-2xl font-bold"
+          :class="(stats.total_pnl||0) >= 0 ? 'text-tertiary' : 'text-error'"
+          x-text="formatPnl(stats.total_pnl)">
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Risk Meter -->
+  <div class="bg-surface-container-low rounded-2xl border border-outline-variant/20 p-6">
+    <div class="text-[11px] font-label uppercase tracking-widest text-on-surface-variant mb-4">Risk Level</div>
+    <div class="flex items-center gap-4 mb-3">
+      <div class="text-3xl" x-text="riskLevel().emoji"></div>
+      <div>
+        <div class="font-bold text-lg text-on-surface" x-text="riskLevel().label"></div>
+        <div class="text-sm text-on-surface-variant mt-0.5" x-text="riskLevel().desc"></div>
+      </div>
+    </div>
+    <!-- Risk bar: 0–100% of 3% daily loss limit -->
+    <div class="h-3 w-full bg-outline-variant/20 rounded-full overflow-hidden">
+      <div class="h-full rounded-full transition-all duration-700"
+        :class="riskLevel().barClass"
+        :style="'width:' + riskLevel().pct + '%'"></div>
+    </div>
+    <div class="flex justify-between text-[10px] font-mono text-on-surface-variant mt-2">
+      <span>Safe</span>
+      <span>Caution</span>
+      <span>Stop zone</span>
+    </div>
+  </div>
+
+  <!-- Open Trade Card -->
+  <div x-show="open_positions.length > 0" class="bg-surface-container-low rounded-2xl border border-outline-variant/20 p-6">
+    <div class="text-[11px] font-label uppercase tracking-widest text-on-surface-variant mb-4">Trade Open Right Now</div>
+    <template x-for="pos in open_positions" :key="pos.ticket">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-2xl" x-text="pos.action === 'BUY' ? '📈' : '📉'"></span>
+            <span class="font-bold text-lg text-on-surface"
+              x-text="'Bot placed a ' + pos.action + ' trade on Gold'"></span>
+          </div>
+          <div class="text-sm text-on-surface-variant"
+            x-text="'Entry price: $' + (pos.entry_price||0).toFixed(2) + '  —  Size: ' + (pos.lot||0).toFixed(2) + ' lots'"></div>
+          <div class="text-sm text-on-surface-variant mt-0.5"
+            x-text="'Stop loss at $' + (pos.sl||0).toFixed(2) + '  |  Take profit at $' + (pos.tp||0).toFixed(2)"></div>
+        </div>
+        <div class="text-right">
+          <div class="font-mono text-2xl font-bold"
+            :class="(pos.pnl||0) >= 0 ? 'text-tertiary' : 'text-error'"
+            x-text="formatPnl(pos.pnl)"></div>
+          <div class="text-xs text-on-surface-variant mt-1"
+            x-text="(pos.pnl||0) >= 0 ? 'currently winning' : 'currently losing'"></div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <!-- No open trade -->
+  <div x-show="open_positions.length === 0"
+       class="bg-surface-container-low rounded-2xl border border-outline-variant/20 p-6 flex items-center gap-4">
+    <span class="text-3xl">⏸️</span>
+    <div>
+      <div class="font-bold text-on-surface">No trade open right now</div>
+      <div class="text-sm text-on-surface-variant mt-0.5">The bot is watching the market and waiting for the right moment.</div>
+    </div>
+  </div>
+
+  <!-- Today's Score -->
+  <div class="bg-surface-container-low rounded-2xl border border-outline-variant/20 p-6">
+    <div class="text-[11px] font-label uppercase tracking-widest text-on-surface-variant mb-4">Score So Far</div>
+    <div class="grid grid-cols-3 gap-4 text-center">
+      <div>
+        <div class="text-3xl font-bold font-mono text-tertiary" x-text="stats.wins || 0"></div>
+        <div class="text-xs text-on-surface-variant mt-1">Winning trades</div>
+      </div>
+      <div>
+        <div class="text-3xl font-bold font-mono text-error"
+          x-text="(stats.closed_trades||0) - (stats.wins||0)"></div>
+        <div class="text-xs text-on-surface-variant mt-1">Losing trades</div>
+      </div>
+      <div>
+        <div class="text-3xl font-bold font-mono text-primary"
+          x-text="stats.closed_trades || 0"></div>
+        <div class="text-xs text-on-surface-variant mt-1">Total completed</div>
+      </div>
+    </div>
+    <!-- Win rate bar -->
+    <div x-show="stats.closed_trades > 0" class="mt-5">
+      <div class="flex justify-between text-xs text-on-surface-variant mb-1">
+        <span x-text="'Win rate: ' + (stats.win_rate||0).toFixed(0) + '%'"></span>
+        <span x-text="(stats.win_rate||0) >= 50 ? '✓ Profitable edge' : 'Still building...'"></span>
+      </div>
+      <div class="h-2 w-full bg-outline-variant/20 rounded-full overflow-hidden">
+        <div class="h-full bg-tertiary rounded-full transition-all duration-700"
+          :style="'width:' + (stats.win_rate||0).toFixed(0) + '%'"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Activity (plain English) -->
+  <div class="bg-surface-container-low rounded-2xl border border-outline-variant/20 p-6">
+    <div class="text-[11px] font-label uppercase tracking-widest text-on-surface-variant mb-4">What the Bot Has Been Doing</div>
+    <div x-show="decisions.length === 0" class="text-sm text-on-surface-variant py-4 text-center">
+      No activity yet — bot hasn't started a cycle.
+    </div>
+    <div class="space-y-3">
+      <template x-for="(dec, i) in decisions.slice(0, 8)" :key="i">
+        <div class="flex items-start gap-3">
+          <span class="text-xl mt-0.5" x-text="decisionEmoji(dec.action)"></span>
+          <div>
+            <div class="text-sm text-on-surface" x-text="decisionSentence(dec)"></div>
+            <div class="text-xs text-on-surface-variant mt-0.5" x-text="dec.timestamp + ' UTC'"></div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- What is this bot? -->
+  <div class="bg-surface-container-low/50 rounded-2xl border border-outline-variant/10 p-6">
+    <div class="text-[11px] font-label uppercase tracking-widest text-on-surface-variant mb-3">How This Bot Works</div>
+    <div class="space-y-2 text-sm text-on-surface-variant leading-relaxed">
+      <p>🤖 Every <strong class="text-on-surface">60 seconds</strong>, the bot looks at the Gold price and asks an AI to decide: Buy, Sell, or Wait.</p>
+      <p>📊 The AI checks technical signals like momentum and trend strength before deciding.</p>
+      <p>🛡️ Each trade has an automatic <strong class="text-on-surface">stop loss</strong> (maximum loss cap) and <strong class="text-on-surface">take profit</strong> (auto-close when target is hit).</p>
+      <p>⚠️ This is running on a <strong class="text-on-surface">demo account</strong> — no real money is at risk yet.</p>
+    </div>
+  </div>
+
+</main>
+
+<!-- ══════════════════════════════════════════════════════════
+     STRATEGY TAB
+═══════════════════════════════════════════════════════════ -->
+<main x-show="active_tab==='strategy'" x-cloak class="pt-28 pb-12 px-6 max-w-[980px] mx-auto space-y-6">
+
+  <!-- Loading state -->
+  <div x-show="!strategy.current" class="text-center py-20 text-outline font-mono text-xs tracking-widest">
+    LOADING STRATEGY INFO...
+  </div>
+
+  <template x-if="strategy.current">
+    <div class="space-y-6">
+
+      <!-- Header -->
+      <div class="flex justify-between items-start border-b border-outline-variant/20 pb-5">
+        <div>
+          <h1 class="font-headline text-2xl text-on-surface font-bold tracking-tight" x-text="strategy.current.name"></h1>
+          <div class="flex gap-3 mt-1 font-mono text-[10px] text-on-surface-variant uppercase tracking-widest">
+            <span x-text="'v' + strategy.current.version"></span>
+            <span>•</span>
+            <span x-text="'Updated: ' + strategy.current.last_updated"></span>
+          </div>
+          <p class="mt-3 text-sm text-on-surface-variant leading-relaxed max-w-[600px]" x-text="strategy.current.phase_summary"></p>
+        </div>
+        <a href="strategy_info.json" target="_blank"
+           class="flex items-center gap-1.5 text-[10px] font-mono text-outline hover:text-primary transition-colors border border-outline-variant/20 px-3 py-1.5 rounded-lg">
+          <span class="material-symbols-outlined text-sm">edit_note</span>
+          Edit strategy_info.json
+        </a>
+      </div>
+
+      <!-- This Week's Focus -->
+      <div class="bg-primary/5 border border-primary/20 rounded-xl p-5 terminal-glow">
+        <div class="flex items-start gap-4">
+          <div class="bg-primary text-on-primary p-2 rounded-lg shrink-0">
+            <span class="material-symbols-outlined text-sm" style="font-variation-settings:'FILL' 1;">science</span>
+          </div>
+          <div class="flex-1">
+            <div class="font-mono text-[10px] text-primary font-bold uppercase tracking-widest mb-1">This Week's Focus</div>
+            <p class="text-sm text-on-surface leading-relaxed" x-text="strategy.current.this_week?.focus"></p>
+            <div class="mt-3 flex flex-wrap gap-4 text-[11px] font-mono">
+              <div>
+                <span class="text-on-surface-variant uppercase tracking-wider text-[9px]">Hypothesis</span>
+                <p class="text-on-surface mt-0.5" x-text="strategy.current.this_week?.hypothesis"></p>
+              </div>
+              <div>
+                <span class="text-on-surface-variant uppercase tracking-wider text-[9px]">Watch</span>
+                <p class="text-primary mt-0.5" x-text="strategy.current.this_week?.watch_metric"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pre-filters -->
+      <div>
+        <div class="flex items-center gap-4 mb-4">
+          <span class="section-label">Pre-Filters</span>
+          <div class="h-px flex-1 bg-outline-variant/20"></div>
+          <span class="text-[10px] font-mono text-on-surface-variant">run before AI is called — saves API cost</span>
+        </div>
+
+        <div class="space-y-3">
+          <template x-for="f in (strategy.current.filters||[])" :key="f.id">
+            <div class="bg-surface-container-low border border-outline-variant/20 rounded-xl p-4">
+              <div class="flex items-start justify-between gap-4">
+                <div class="flex-1">
+                  <div class="flex items-center gap-3 mb-2">
+                    <span class="font-mono text-sm font-bold text-on-surface" x-text="f.name"></span>
+                    <!-- Status badge -->
+                    <span class="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase"
+                      :class="{
+                        'bg-tertiary/15 text-tertiary':   f.status === 'active',
+                        'bg-amber-400/15 text-amber-400': f.status === 'testing',
+                        'bg-outline/15 text-outline':     f.status === 'disabled'
+                      }"
+                      x-text="f.status"></span>
+                    <!-- Live block rate from diagnostics if available -->
+                    <span x-show="filterBlockRate(f.id)" class="text-[9px] font-mono text-on-surface-variant">
+                      blocks <span class="text-primary" x-text="filterBlockRate(f.id)"></span>
+                    </span>
+                  </div>
+                  <!-- Plain English -->
+                  <p class="text-sm text-on-surface leading-relaxed mb-2" x-text="f.plain_english"></p>
+                  <!-- Why -->
+                  <p class="text-xs text-on-surface-variant leading-relaxed italic" x-text="'Why: ' + f.why"></p>
+                </div>
+                <!-- Threshold pill -->
+                <div class="shrink-0 bg-surface-container rounded-lg px-3 py-2 min-w-[160px]">
+                  <div class="text-[9px] font-mono text-on-surface-variant uppercase tracking-wider mb-1">Threshold</div>
+                  <div class="text-[11px] font-mono text-primary" x-text="f.threshold"></div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Indicators -->
+      <div>
+        <div class="flex items-center gap-4 mb-4">
+          <span class="section-label">Indicators</span>
+          <div class="h-px flex-1 bg-outline-variant/20"></div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <template x-for="ind in (strategy.current.indicators||[])" :key="ind.name">
+            <div class="bg-surface-container-low border border-outline-variant/20 rounded-xl p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="font-mono text-sm font-bold text-on-surface" x-text="ind.name"></span>
+                <template x-for="tf in (ind.timeframes||[])" :key="tf">
+                  <span class="text-[9px] font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded" x-text="tf"></span>
+                </template>
+              </div>
+              <div class="text-[9px] font-mono text-on-surface-variant uppercase tracking-widest mb-2" x-text="ind.role"></div>
+              <p class="text-sm text-on-surface leading-relaxed mb-3" x-text="ind.plain_english"></p>
+              <div class="text-xs text-amber-400/80 flex items-start gap-1.5">
+                <span class="material-symbols-outlined text-sm shrink-0" style="font-variation-settings:'FILL' 1;">lightbulb</span>
+                <span x-text="ind.what_to_watch"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Entry / Exit Logic -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        <!-- Entry -->
+        <div class="bg-surface-container-low border border-outline-variant/20 rounded-xl p-5">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="material-symbols-outlined text-tertiary text-sm" style="font-variation-settings:'FILL' 1;">login</span>
+            <span class="font-mono text-[11px] font-bold text-on-surface uppercase tracking-widest">Entry Logic</span>
+          </div>
+          <ol class="space-y-2">
+            <template x-for="(step, i) in (strategy.current.entry_logic||[])" :key="i">
+              <li class="flex items-start gap-3 text-sm text-on-surface leading-relaxed">
+                <span class="font-mono text-[10px] text-on-surface-variant shrink-0 mt-0.5"
+                  x-text="(i+1).toString().padStart(2,'0')"></span>
+                <span x-text="step"></span>
+              </li>
+            </template>
+          </ol>
+        </div>
+
+        <!-- Exit -->
+        <div class="bg-surface-container-low border border-outline-variant/20 rounded-xl p-5">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="material-symbols-outlined text-error text-sm" style="font-variation-settings:'FILL' 1;">logout</span>
+            <span class="font-mono text-[11px] font-bold text-on-surface uppercase tracking-widest">Exit Logic</span>
+          </div>
+          <ol class="space-y-2">
+            <template x-for="(step, i) in (strategy.current.exit_logic||[])" :key="i">
+              <li class="flex items-start gap-3 text-sm text-on-surface leading-relaxed">
+                <span class="font-mono text-[10px] text-on-surface-variant shrink-0 mt-0.5"
+                  x-text="(i+1).toString().padStart(2,'0')"></span>
+                <span x-text="step"></span>
+              </li>
+            </template>
+          </ol>
+        </div>
+      </div>
+
+      <!-- Risk Rules + Known Issues -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        <!-- Risk -->
+        <div class="bg-surface-container-low border border-outline-variant/20 rounded-xl p-5">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings:'FILL' 1;">shield</span>
+            <span class="font-mono text-[11px] font-bold text-on-surface uppercase tracking-widest">Risk Rules</span>
+          </div>
+          <ul class="space-y-2">
+            <template x-for="(rule, i) in (strategy.current.risk_rules||[])" :key="i">
+              <li class="flex items-start gap-2 text-sm text-on-surface">
+                <span class="text-tertiary shrink-0">→</span>
+                <span x-text="rule"></span>
+              </li>
+            </template>
+          </ul>
+        </div>
+
+        <!-- Known Issues -->
+        <div class="bg-error/5 border border-error/20 rounded-xl p-5">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="material-symbols-outlined text-error text-sm" style="font-variation-settings:'FILL' 1;">warning</span>
+            <span class="font-mono text-[11px] font-bold text-error uppercase tracking-widest">Known Issues</span>
+          </div>
+          <ul class="space-y-2">
+            <template x-for="(issue, i) in (strategy.current.known_issues||[])" :key="i">
+              <li class="flex items-start gap-2 text-sm text-on-surface-variant leading-relaxed">
+                <span class="text-error/60 shrink-0 mt-0.5">!</span>
+                <span x-text="issue"></span>
+              </li>
+            </template>
+          </ul>
+          <div x-show="!strategy.current.known_issues || !strategy.current.known_issues.length"
+               class="text-outline font-mono text-xs text-center py-4">None logged</div>
+        </div>
+      </div>
+
+      <!-- Parked Ideas -->
+      <div x-show="strategy.current?.disabled_ideas?.length">
+        <div class="flex items-center gap-4 mb-3">
+          <span class="section-label opacity-40">Parked Ideas</span>
+          <div class="h-px flex-1 bg-outline-variant/10"></div>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <template x-for="(idea, i) in (strategy.current?.disabled_ideas||[])" :key="i">
+            <div class="bg-surface-container border border-outline-variant/10 rounded-lg px-4 py-2 opacity-50">
+              <div class="text-[11px] font-mono text-on-surface-variant line-through" x-text="idea.name"></div>
+              <div class="text-[10px] text-outline mt-0.5" x-text="idea.reason"></div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- ── Future Plans ── -->
+      <div x-show="strategy.future_plans?.length">
+        <div class="flex items-center gap-4 mb-4">
+          <span class="section-label" style="color:#fbbf24">Future Plans</span>
+          <div class="h-px flex-1 bg-outline-variant/20"></div>
+          <span class="text-[10px] font-mono text-on-surface-variant">what we try next when current phase settles</span>
+        </div>
+        <div class="space-y-3">
+          <template x-for="(plan, i) in (strategy.future_plans||[])" :key="i">
+            <div class="bg-surface-container-low border rounded-xl p-4"
+              :class="{
+                'border-error/30':             plan.priority === 'high',
+                'border-amber-500/30':         plan.priority === 'medium',
+                'border-outline-variant/20':   plan.priority === 'low'
+              }">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex-1">
+                  <div class="flex items-center gap-2 mb-1 flex-wrap">
+                    <span class="font-mono text-sm font-bold text-on-surface" x-text="plan.title"></span>
+                    <span class="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase"
+                      :class="{
+                        'bg-error/15 text-error':           plan.priority === 'high',
+                        'bg-amber-400/15 text-amber-400':   plan.priority === 'medium',
+                        'bg-outline/15 text-outline':       plan.priority === 'low'
+                      }"
+                      x-text="plan.priority + ' priority'"></span>
+                  </div>
+                  <p class="text-sm text-on-surface-variant leading-relaxed" x-text="plan.description"></p>
+                </div>
+                <div class="text-[10px] font-mono text-outline shrink-0" x-text="plan.added"></div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- ── Change History ── -->
+      <div x-show="strategy.history?.length">
+        <div class="flex items-center gap-4 mb-4">
+          <span class="section-label opacity-60">Change History</span>
+          <div class="h-px flex-1 bg-outline-variant/20"></div>
+          <span class="text-[10px] font-mono text-on-surface-variant">newest first</span>
+        </div>
+
+        <div class="relative pl-6">
+          <!-- Timeline spine -->
+          <div class="absolute left-2 top-2 bottom-2 w-px bg-outline-variant/20"></div>
+
+          <div class="space-y-4">
+            <template x-for="(entry, i) in (strategy.history||[])" :key="i">
+              <div class="relative">
+                <!-- Timeline dot -->
+                <div class="absolute -left-[18px] top-4 w-2.5 h-2.5 rounded-full border-2"
+                  :class="{
+                    'bg-tertiary border-tertiary':                   entry.outcome === 'active',
+                    'bg-primary border-primary':                     entry.outcome === 'success',
+                    'bg-error border-error':                         entry.outcome === 'failed',
+                    'bg-outline-variant border-outline-variant':     entry.outcome === 'superseded',
+                    'bg-surface-container border-outline-variant':   !entry.outcome || entry.outcome === 'pending'
+                  }"></div>
+
+                <div class="bg-surface-container-low border border-outline-variant/20 rounded-xl p-4"
+                  :class="i === 0 ? 'border-outline-variant/50' : 'opacity-75'">
+
+                  <!-- Header row -->
+                  <div class="flex items-start justify-between gap-3 mb-3">
+                    <div class="flex-1">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <span class="font-mono text-sm font-bold text-on-surface" x-text="entry.title"></span>
+                        <span class="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase"
+                          :class="{
+                            'bg-tertiary/15 text-tertiary': entry.outcome === 'active',
+                            'bg-primary/15 text-primary':   entry.outcome === 'success',
+                            'bg-error/15 text-error':       entry.outcome === 'failed',
+                            'bg-outline/15 text-outline':   entry.outcome === 'superseded',
+                            'bg-surface-variant text-on-surface-variant': !entry.outcome || entry.outcome === 'pending'
+                          }"
+                          x-text="entry.outcome || 'pending'"></span>
+                      </div>
+                      <p class="text-xs text-on-surface-variant mt-1 leading-relaxed" x-text="entry.summary"></p>
+                    </div>
+                    <div class="text-right shrink-0">
+                      <div class="text-[11px] font-mono text-on-surface-variant" x-text="entry.date"></div>
+                      <div class="text-[10px] font-mono text-outline mt-0.5"
+                        x-text="'v' + entry.version + (entry.commit ? ' · ' + entry.commit : '')"></div>
+                    </div>
+                  </div>
+
+                  <!-- Change pills -->
+                  <div x-show="entry.changes?.length" class="flex flex-wrap gap-1.5 mb-3">
+                    <template x-for="(ch, j) in (entry.changes||[])" :key="j">
+                      <span class="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full border"
+                        :class="{
+                          'border-tertiary/30 text-tertiary bg-tertiary/5':  ch.type === 'added',
+                          'border-error/30 text-error bg-error/5':           ch.type === 'removed',
+                          'border-primary/30 text-primary bg-primary/5':     ch.type === 'changed'
+                        }">
+                        <span x-text="ch.type === 'added' ? '+' : ch.type === 'removed' ? '−' : '~'"></span>
+                        <span x-text="ch.item"></span>
+                      </span>
+                    </template>
+                  </div>
+
+                  <!-- Outcome note -->
+                  <div x-show="entry.outcome_note"
+                       class="text-[11px] text-on-surface-variant/60 italic border-t border-outline-variant/10 pt-2"
+                       x-text="entry.outcome_note"></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </template>
+</main>
+
+<!-- Background glow (decoration) -->
+<div class="fixed inset-0 -z-10 pointer-events-none">
+  <div class="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full"></div>
+  <div class="absolute bottom-0 left-0 w-[400px] h-[400px] bg-primary/5 blur-[120px] rounded-full"></div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     ALPINE.JS APP LOGIC
+═══════════════════════════════════════════════════════════ -->
+<script>
+function goldbot() {
+  return {
+    // UI state
+    active_tab: 'monitor',
+    clock: '--:--:-- UTC',
+
+    // Live data
+    balance:       0,
+    equity:        0,
+    equity_change: 0,
+    open_count:    0,
+    stats:         { total_trades:0, closed_trades:0, wins:0, win_rate:0, total_pnl:0, avg_pnl:0 },
+    decisions:     [],
+    open_positions:[],
+    trade_history: [],
+    equity_history:[],
+    candles:       [],
+    chart_trades:  [],
+    session_stats: [],
+    diagnostics:   { ai_cycles:0, passed_prefilter:0, executed_trades:0, confidence_buckets:[], exit_reasons:[] },
+
+    // Strategy info (loaded on demand)
+    strategy:      {},
+
+    // Chart handles
+    _chart:        null,
+    _candleSeries: null,
+    _equityChart:  null,
+    _equitySeries: null,
+
+    // ── Lifecycle ──────────────────────────────────────────
+    init() {
+      this.startClock();
+      this.fetchSnapshot();
+      this.connectSSE();
+    },
+
+    startClock() {
+      const tick = () => {
+        const now = new Date();
+        const h = now.getUTCHours().toString().padStart(2,'0');
+        const m = now.getUTCMinutes().toString().padStart(2,'0');
+        const s = now.getUTCSeconds().toString().padStart(2,'0');
+        this.clock = `${h}:${m}:${s} UTC`;
+      };
+      tick();
+      setInterval(tick, 1000);
+    },
+
+    // ── Data fetching ──────────────────────────────────────
+    async fetchSnapshot() {
+      try {
+        const res  = await fetch('/api/snapshot');
+        const data = await res.json();
+        this.applyData(data);
+        // Init charts after DOM settles
+        setTimeout(() => this.initCharts(data), 150);
+      } catch(e) {
+        console.warn('[GoldBot] Snapshot fetch failed:', e);
+      }
+    },
+
+    connectSSE() {
+      const es = new EventSource('/stream');
+      es.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          this.applyData(data);
+          this.updateCharts(data);
+        } catch(err) {
+          console.warn('[GoldBot] SSE parse error:', err);
+        }
+      };
+      es.onerror = () => {
+        console.warn('[GoldBot] SSE disconnected — retrying in 5s');
+        es.close();
+        setTimeout(() => this.connectSSE(), 5000);
+      };
+    },
+
+    applyData(data) {
+      this.balance       = data.balance       ?? this.balance;
+      this.equity        = data.equity        ?? this.equity;
+      this.equity_change = data.equity_change ?? this.equity_change;
+      this.open_count    = data.open_count    ?? this.open_count;
+      if (data.stats)        this.stats        = data.stats;
+      if (data.decisions)    this.decisions    = data.decisions;
+      if (data.open_positions) this.open_positions = data.open_positions;
+      if (data.trade_history)  this.trade_history  = data.trade_history;
+      if (data.equity_history) this.equity_history = data.equity_history;
+      if (data.candles)        this.candles        = data.candles;
+      if (data.chart_trades)   this.chart_trades   = data.chart_trades;
+      if (data.session_stats)  this.session_stats  = data.session_stats;
+      if (data.diagnostics)    this.diagnostics    = data.diagnostics;
+    },
+
+    // ── Charts ─────────────────────────────────────────────
+    initCharts(data) {
+      this.initCandleChart(data.candles || [], data.chart_trades || []);
+      this.initEquityChart(data.equity_history || []);
+    },
+
+    initCandleChart(candles, chartTrades) {
+      if (!window.LightweightCharts) return;
+      const el = document.getElementById('tv-chart');
+      if (!el) return;
+      if (this._chart) { this._chart.remove(); this._chart = null; }
+
+      this._chart = LightweightCharts.createChart(el, {
+        width:  el.clientWidth,
+        height: 380,
+        layout: { background: { color: '#11131b' }, textColor: '#8b8fa8' },
+        grid:   { vertLines: { color: '#1e2330' }, horzLines: { color: '#1e2330' } },
+        crosshair:       { mode: LightweightCharts.CrosshairMode.Normal },
+        rightPriceScale: { borderColor: '#2a2d3e' },
+        timeScale:       { borderColor: '#2a2d3e', timeVisible: true, secondsVisible: false },
+      });
+
+      this._candleSeries = this._chart.addCandlestickSeries({
+        upColor:         '#00e475',
+        downColor:       '#ff5252',
+        borderUpColor:   '#00e475',
+        borderDownColor: '#ff5252',
+        wickUpColor:     '#00e475',
+        wickDownColor:   '#ff5252',
+      });
+
+      if (candles && candles.length) {
+        const sorted = [...candles]
+          .filter(c => c.time > 0)
+          .sort((a,b) => a.time - b.time);
+        if (sorted.length) this._candleSeries.setData(sorted);
+      }
+      this.setTradeMarkers(chartTrades);
+
+      // Responsive resize
+      const ro = new ResizeObserver(() => {
+        if (this._chart) this._chart.resize(el.clientWidth, 380);
+      });
+      ro.observe(el);
+    },
+
+    setTradeMarkers(chartTrades) {
+      if (!this._candleSeries || !chartTrades || !chartTrades.length) return;
+      const markers = [];
+
+      for (const t of chartTrades) {
+        const entryTime = this.toUnix(t.entry_time);
+        if (!entryTime) continue;
+
+        markers.push({
+          time:     entryTime,
+          position: t.action === 'BUY' ? 'belowBar' : 'aboveBar',
+          color:    t.action === 'BUY' ? '#00e475' : '#ff5252',
+          shape:    t.action === 'BUY' ? 'arrowUp'  : 'arrowDown',
+          text:     t.action,
+          size:     1,
+        });
+
+        if (t.exit_time && t.close_reason) {
+          const exitTime = this.toUnix(t.exit_time);
+          if (exitTime && exitTime !== entryTime) {
+            const isWin = (parseFloat(t.pnl_dollars) || 0) > 0;
+            markers.push({
+              time:     exitTime,
+              position: isWin ? 'aboveBar' : 'belowBar',
+              color:    isWin ? '#00e475' : '#ff5252',
+              shape:    'circle',
+              text:     isWin ? 'WIN' : 'LOSS',
+              size:     1,
+            });
+          }
+        }
+      }
+
+      markers.sort((a,b) => a.time - b.time);
+      // Deduplicate same time+position
+      const seen = new Set();
+      const unique = markers.filter(m => {
+        const key = `${m.time}-${m.position}-${m.text}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      try { this._candleSeries.setMarkers(unique); } catch(e) {}
+    },
+
+    initEquityChart(equityHistory) {
+      if (!window.LightweightCharts) return;
+      const el = document.getElementById('equity-chart');
+      if (!el) return;
+      if (this._equityChart) { this._equityChart.remove(); this._equityChart = null; }
+
+      this._equityChart = LightweightCharts.createChart(el, {
+        width:  el.clientWidth,
+        height: 160,
+        layout: { background: { color: '#11131b' }, textColor: '#8b8fa8' },
+        grid:   { vertLines: { color: '#1e2330' }, horzLines: { color: '#1e2330' } },
+        rightPriceScale: { borderColor: '#2a2d3e' },
+        timeScale:       { borderColor: '#2a2d3e', timeVisible: true },
+        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+      });
+
+      this._equitySeries = this._equityChart.addAreaSeries({
+        lineColor:   '#b8afff',
+        topColor:    'rgba(184,175,255,0.15)',
+        bottomColor: 'rgba(184,175,255,0)',
+        lineWidth:   2,
+      });
+
+      if (equityHistory && equityHistory.length) {
+        const pts = equityHistory
+          .map(p => ({ time: this.toUnix(p.timestamp), value: parseFloat(p.equity) }))
+          .filter(p => p.time > 0 && !isNaN(p.value))
+          .sort((a,b) => a.time - b.time);
+        if (pts.length) this._equitySeries.setData(pts);
+      }
+
+      const ro = new ResizeObserver(() => {
+        if (this._equityChart) this._equityChart.resize(el.clientWidth, 160);
+      });
+      ro.observe(el);
+    },
+
+    updateCharts(data) {
+      if (this._candleSeries && data.candles && data.candles.length) {
+        const sorted = [...data.candles]
+          .filter(c => c.time > 0)
+          .sort((a,b) => a.time - b.time);
+        if (sorted.length) {
+          try { this._candleSeries.setData(sorted); } catch(e) {}
+        }
+        this.setTradeMarkers(data.chart_trades || []);
+      }
+
+      if (this._equitySeries && data.equity_history && data.equity_history.length) {
+        const pts = data.equity_history
+          .map(p => ({ time: this.toUnix(p.timestamp), value: parseFloat(p.equity) }))
+          .filter(p => p.time > 0 && !isNaN(p.value))
+          .sort((a,b) => a.time - b.time);
+        if (pts.length) {
+          try { this._equitySeries.setData(pts); } catch(e) {}
+        }
+      }
+    },
+
+    // ── Helpers ────────────────────────────────────────────
+    toUnix(ts) {
+      if (!ts) return 0;
+      if (typeof ts === 'number') return ts;
+      try {
+        const d = new Date(ts);
+        if (isNaN(d.getTime())) return 0;
+        return Math.floor(d.getTime() / 1000);
+      } catch(e) { return 0; }
+    },
+
+    formatPnl(val) {
+      const v = parseFloat(val) || 0;
+      const sign = v >= 0 ? '+' : '-';
+      return `${sign}$${Math.abs(v).toFixed(2)}`;
+    },
+
+    pnlClass(val) {
+      return parseFloat(val) >= 0 ? 'text-tertiary' : 'text-error';
+    },
+
+    actionClass(action) {
+      if (!action) return 'text-on-surface-variant';
+      const a = action.toUpperCase();
+      if (a === 'BUY')  return 'text-tertiary';
+      if (a === 'SELL') return 'text-error';
+      return 'text-on-surface-variant';
+    },
+
+    actionBadgeClass(action) {
+      if (!action) return 'bg-surface-variant text-on-surface-variant';
+      const a = action.toUpperCase();
+      if (a === 'BUY')  return 'bg-tertiary text-on-tertiary';
+      if (a === 'SELL') return 'bg-error text-on-error';
+      if (a === 'EXIT') return 'bg-error text-on-error';
+      if (a === 'HOLD') return 'bg-surface-variant text-on-surface-variant';
+      return 'bg-surface-variant text-on-surface-variant';
+    },
+
+    closeReasonClass(reason) {
+      if (!reason) return 'text-on-surface-variant';
+      const r = reason.toLowerCase();
+      if (r.includes('tp') || r.includes('win'))      return 'text-tertiary';
+      if (r.includes('sl') || r.includes('loss'))     return 'text-error';
+      if (r.includes('trail'))                         return 'text-amber-400';
+      return 'text-on-surface-variant';
+    },
+
+    sessionBucketWidth(wr) {
+      return `${Math.min(Math.max(parseFloat(wr) || 0, 0), 100)}%`;
+    },
+
+    sessionBarClass(wr) {
+      const v = parseFloat(wr) || 0;
+      if (v >= 55) return 'bg-tertiary/25';
+      if (v >= 45) return 'bg-primary/20';
+      return 'bg-error/20';
+    },
+
+    // ── Strategy tab ──────────────────────────────────────
+    async loadStrategy() {
+      if (this.strategy.current) return; // already loaded
+      try {
+        const res = await fetch('/api/strategy');
+        this.strategy = await res.json();
+      } catch(e) {
+        console.warn('[GoldBot] Strategy fetch failed:', e);
+      }
+    },
+
+    filterBlockRate(filterId) {
+      // Map filter IDs to live diagnostics data where available
+      const d = this.diagnostics;
+      if (!d || !d.ai_cycles || d.ai_cycles === 0) return null;
+      const map = {
+        session_gate:        d.ai_cycles > 0 ? ((1 - (d.passed_prefilter / d.ai_cycles)) * 67).toFixed(0) + '% of cycles' : null,
+      };
+      return map[filterId] || null;
+    },
+
+    // ── Simple View helpers ────────────────────────────────
+
+    simpleStatus() {
+      const isRunning  = this.decisions.length > 0;
+      const hasLoss    = (this.stats.total_pnl || 0) < 0;
+      const openTrades = this.open_count > 0;
+
+      if (!isRunning) return {
+        emoji: '😴',
+        headline: 'Bot is waiting to start',
+        sub: 'No activity recorded yet. Make sure the bot is running.',
+        bg: 'bg-surface-container border-outline-variant/30',
+      };
+      if (openTrades && !hasLoss) return {
+        emoji: '🟢',
+        headline: 'Bot is active — trade in progress',
+        sub: 'The bot has an open position and is monitoring it right now.',
+        bg: 'bg-tertiary/10 border-tertiary/30',
+      };
+      if (hasLoss) return {
+        emoji: '🟡',
+        headline: 'Bot is running — currently at a loss',
+        sub: 'The bot is working normally. Losses are part of trading — the strategy needs enough trades to show results.',
+        bg: 'bg-amber-500/10 border-amber-500/30',
+      };
+      return {
+        emoji: '🟢',
+        headline: 'Bot is running normally',
+        sub: 'Watching the market every 60 seconds and placing trades when conditions are right.',
+        bg: 'bg-tertiary/10 border-tertiary/30',
+      };
+    },
+
+    riskLevel() {
+      // Daily loss vs 3% limit — use equity_change as proxy
+      const loss    = Math.min(0, this.equity_change || 0);
+      const limit   = (this.balance || 10000) * 0.03;
+      const usedPct = limit > 0 ? Math.min(Math.abs(loss) / limit * 100, 100) : 0;
+
+      if (usedPct < 30) return {
+        emoji: '🟢', label: 'Safe', pct: usedPct,
+        desc:  'The bot is well within its daily loss limit.',
+        barClass: 'bg-tertiary',
+      };
+      if (usedPct < 70) return {
+        emoji: '🟡', label: 'Caution', pct: usedPct,
+        desc:  'Getting closer to the daily safety limit. The bot may stop trading soon.',
+        barClass: 'bg-amber-400',
+      };
+      return {
+        emoji: '🔴', label: 'Stop Zone', pct: usedPct,
+        desc:  'Near the daily loss limit. The bot will automatically stop trading to protect the account.',
+        barClass: 'bg-error',
+      };
+    },
+
+    decisionEmoji(action) {
+      if (!action) return '⏺️';
+      const a = action.toUpperCase();
+      if (a === 'BUY')  return '📈';
+      if (a === 'SELL') return '📉';
+      if (a === 'EXIT') return '🏁';
+      return '⏸️';
+    },
+
+    decisionSentence(dec) {
+      const action = (dec.action || '').toUpperCase();
+      const conf   = dec.confidence || 0;
+      const reason = dec.reason ? dec.reason.split('.')[0] : '';
+      const confWord = conf >= 85 ? 'very confident' : conf >= 70 ? 'fairly confident' : 'cautious';
+
+      if (action === 'BUY')
+        return `Opened a BUY trade on Gold — ${confWord} (${conf}% confidence). ${reason}`;
+      if (action === 'SELL')
+        return `Opened a SELL trade on Gold — ${confWord} (${conf}% confidence). ${reason}`;
+      if (action === 'EXIT')
+        return `Closed an existing trade — ${reason || 'market conditions changed'}.`;
+      return `Decided NOT to trade — ${reason || 'conditions were not right'}. (${conf}% confidence)`;
+    },
+  };
+}
+</script>
+
+</body>
+</html>

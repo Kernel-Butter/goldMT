@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>GoldBot — Terminal Diagnostics</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface": "#0d0f17",
+              "card": "#12141f",
+              "card-alt": "#1a1d27",
+              "border": "#1e2030",
+              "primary": "#7c6af7",
+              "success": "#00e676",
+              "danger": "#ff5252",
+              "text-dim": "#8e909f",
+              "text-main": "#e2e1ed"
+            },
+            fontFamily: {
+              "headline": ["Space Grotesk", "sans-serif"],
+              "body": ["Inter", "sans-serif"],
+              "mono": ["JetBrains Mono", "monospace"]
+            },
+            borderRadius: {
+              "sm": "2px",
+              "md": "4px",
+              "lg": "8px"
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #0d0f17; color: #e2e1ed; -webkit-font-smoothing: antialiased; }
+        .terminal-glow { box-shadow: 0 0 20px rgba(124, 106, 247, 0.1); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .chart-grid { background-image: radial-gradient(#1e2030 0.5px, transparent 0.5px); background-size: 16px 16px; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20; }
+    </style>
+</head>
+<body class="bg-surface selection:bg-primary/30 selection:text-white">
+<!-- Top Navigation -->
+<header class="fixed top-0 w-full h-12 z-50 bg-surface/80 backdrop-blur-md border-b border-border flex justify-between items-center px-6">
+<div class="flex items-center gap-12">
+<span class="text-sm font-headline font-bold tracking-widest text-white">GOLDBOT // TERM</span>
+<nav class="flex gap-8 h-full items-center text-[11px] font-mono uppercase tracking-widest">
+<a class="text-text-dim hover:text-white transition-colors" href="#">Monitor</a>
+<a class="text-primary relative py-4" href="#">
+                Diagnostics
+                <span class="absolute bottom-0 left-0 w-full h-0.5 bg-primary"></span>
+</a>
+<a class="text-text-dim hover:text-white transition-colors" href="#">Execution</a>
+</nav>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2 text-[10px] font-mono text-text-dim">
+<span class="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span>
+            LIVE: CONNECTED
+        </div>
+<span class="material-symbols-outlined text-text-dim hover:text-white cursor-pointer text-lg" data-icon="refresh">refresh</span>
+<div class="w-6 h-6 rounded-sm bg-card border border-border flex items-center justify-center overflow-hidden">
+<img alt="User avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpBoACxTZGU7n0djUTyUXt9F0GXcl2Qe6Ws4px_Z_tIBf-1wSBNtZxqHyljp8Zf1y4gGb8BDNLyjBAG-47maTWJG7ZMeXOIZtCJ92PxUp9heUPRviOk5Qll6TGuytzqCrNVEZV8m9YbOxXKnY9UgMkxH08EDVuVdkZwWEztDH1cD_T0L0Z8GvQt7wNdBeo0RRrTWddYuu5zXX13jUQCK8A7d19HQPct6k7L8b3q9EoGPPvo3Y7api16md_gr-VeHbdhehg_sLfqg"/>
+</div>
+</div>
+</header>
+<!-- Side Bar -->
+<aside class="fixed left-0 top-12 h-[calc(100vh-48px)] w-16 bg-surface border-r border-border flex flex-col items-center py-6 gap-8">
+<div class="p-2 rounded-md bg-primary/10 text-primary">
+<span class="material-symbols-outlined" data-icon="terminal">terminal</span>
+</div>
+<div class="flex flex-col gap-6 text-text-dim">
+<span class="material-symbols-outlined cursor-pointer hover:text-white" data-icon="insights">insights</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-white" data-icon="history">history</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-white" data-icon="account_tree">account_tree</span>
+</div>
+<div class="mt-auto pb-4 flex flex-col gap-6 text-text-dim">
+<span class="material-symbols-outlined cursor-pointer hover:text-white" data-icon="settings">settings</span>
+</div>
+</aside>
+<!-- Main Area -->
+<main class="ml-16 mt-12 p-10 max-w-[1280px] mx-auto min-h-screen">
+<!-- Title & Metadata -->
+<div class="mb-12 flex justify-between items-end border-b border-border pb-6">
+<div>
+<h1 class="font-headline text-2xl text-white font-bold tracking-tight mb-1">Strategy Performance Diagnostics</h1>
+<div class="flex gap-4 font-mono text-[10px] text-text-dim uppercase tracking-tighter">
+<span>ID: GOLDBOT-STG-47</span>
+<span>•</span>
+<span>Active: 12.4 Days</span>
+<span>•</span>
+<span>Env: Production</span>
+</div>
+</div>
+<div class="text-right font-mono text-[10px] text-text-dim uppercase">
+            Last Compute: 14:32:05 UTC
+        </div>
+</div>
+<!-- Section 1: Core AI Intelligence -->
+<div class="mb-12">
+<div class="flex items-center gap-4 mb-6">
+<span class="text-[10px] font-mono text-primary font-bold uppercase tracking-[0.2em]">01_Intelligence_Audit</span>
+<div class="h-[1px] flex-1 bg-border/50"></div>
+</div>
+<div class="grid grid-cols-3 gap-6 mb-6">
+<!-- Metric 1 -->
+<div class="bg-card border border-border p-6 rounded-md">
+<div class="flex justify-between items-start mb-6">
+<span class="text-[10px] font-mono text-text-dim uppercase">AI Computation Cycles</span>
+<span class="text-primary text-[10px] font-mono">847 TOTAL</span>
+</div>
+<div class="font-mono text-3xl font-medium mb-4">847</div>
+<div class="space-y-3">
+<div class="flex justify-between text-[10px] font-mono">
+<span class="text-text-dim">PASSED PRE-FILTER</span>
+<span>156</span>
+</div>
+<div class="flex justify-between text-[10px] font-mono">
+<span class="text-text-dim">EXECUTED TRADES</span>
+<span class="text-primary">47</span>
+</div>
+<div class="h-1 bg-border w-full rounded-full overflow-hidden mt-2">
+<div class="h-full bg-primary" style="width: 5.6%"></div>
+</div>
+</div>
+</div>
+<!-- Metric 2 -->
+<div class="bg-card border border-border p-6 rounded-md">
+<div class="flex justify-between items-start mb-6">
+<span class="text-[10px] font-mono text-text-dim uppercase">Model Alpha Edge</span>
+<span class="text-success text-[10px] font-mono">+4.0%</span>
+</div>
+<div class="flex items-end gap-6 h-10">
+<div>
+<div class="text-[10px] font-mono text-text-dim uppercase mb-1">Standard</div>
+<div class="font-mono text-xl text-text-main">54%</div>
+</div>
+<div class="h-full w-px bg-border"></div>
+<div>
+<div class="text-[10px] font-mono text-primary uppercase mb-1">AI-Enriched</div>
+<div class="font-mono text-xl text-primary font-bold">58%</div>
+</div>
+</div>
+<div class="mt-8 pt-4 border-t border-border/40 flex items-center gap-2 text-[10px] font-mono text-success">
+<span class="material-symbols-outlined text-sm" data-icon="bolt">bolt</span>
+                    FILTERING LOGIC SIGNIFICANTLY REDUCING NOISE
+                </div>
+</div>
+<!-- Metric 3 -->
+<div class="bg-card border border-border p-6 rounded-md">
+<div class="text-[10px] font-mono text-text-dim uppercase mb-6">Accuracy Correlation</div>
+<div class="space-y-3">
+<div class="flex justify-between items-center text-[10px] font-mono">
+<span class="text-text-dim">65-75% CONF</span>
+<span class="text-danger">48.2% WR</span>
+</div>
+<div class="flex justify-between items-center text-[10px] font-mono">
+<span class="text-text-dim">75-85% CONF</span>
+<span class="text-text-main">61.4% WR</span>
+</div>
+<div class="flex justify-between items-center text-[10px] font-mono">
+<span class="text-text-dim">85-100% CONF</span>
+<span class="text-primary font-bold">74.9% WR</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Verdict Box -->
+<div class="bg-primary/5 border border-primary/20 p-5 rounded-md terminal-glow flex items-start gap-4">
+<div class="bg-primary text-white p-2 rounded-sm">
+<span class="material-symbols-outlined text-sm" data-icon="auto_awesome">auto_awesome</span>
+</div>
+<div>
+<div class="font-mono text-[10px] text-primary font-bold uppercase mb-1">System Assessment Verdict</div>
+<p class="font-mono text-[11px] text-text-main leading-relaxed">
+                    ANALYSIS COMPLETE: LLM decision layer is generating 4.0pp of incremental alpha. High-confidence trade signals (85%+) exhibit outlier performance. <span class="text-primary underline underline-offset-4 decoration-primary/30">Action:</span> Maintain current weights; increase size on high-conf entries.
+                </p>
+</div>
+</div>
+</div>
+<!-- Section 2: Attribution Grid -->
+<div class="mb-12">
+<div class="flex items-center gap-4 mb-6">
+<span class="text-[10px] font-mono text-primary font-bold uppercase tracking-[0.2em]">02_Attribution_Analysis</span>
+<div class="h-[1px] flex-1 bg-border/50"></div>
+</div>
+<div class="grid grid-cols-12 gap-6">
+<!-- Indicator Attribution -->
+<div class="col-span-4 bg-card border border-border p-6 rounded-md">
+<div class="text-[10px] font-mono text-text-dim uppercase mb-6">Signal Component P&amp;L</div>
+<div class="space-y-5">
+<div class="space-y-1.5">
+<div class="flex justify-between text-[10px] font-mono">
+<span class="text-text-main">EMA Trend Alignment</span>
+<span class="text-success">+$284.10</span>
+</div>
+<div class="h-1 bg-border w-full">
+<div class="h-full bg-success" style="width: 85%"></div>
+</div>
+</div>
+<div class="space-y-1.5">
+<div class="flex justify-between text-[10px] font-mono">
+<span class="text-text-main">RSI Mid-Range Filter</span>
+<span class="text-success">+$198.40</span>
+</div>
+<div class="h-1 bg-border w-full">
+<div class="h-full bg-success" style="width: 60%"></div>
+</div>
+</div>
+<div class="space-y-1.5">
+<div class="flex justify-between text-[10px] font-mono">
+<span class="text-text-main">Volume Outlier Spike</span>
+<span class="text-success">+$42.20</span>
+</div>
+<div class="h-1 bg-border w-full">
+<div class="h-full bg-success" style="width: 15%"></div>
+</div>
+</div>
+<div class="space-y-1.5">
+<div class="flex justify-between text-[10px] font-mono">
+<span class="text-text-dim">Range-Bound Stagnation</span>
+<span class="text-danger">-$112.50</span>
+</div>
+<div class="h-1 bg-border w-full flex justify-end">
+<div class="h-full bg-danger" style="width: 35%"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Session Stats -->
+<div class="col-span-4 bg-card border border-border p-6 rounded-md flex flex-col">
+<div class="text-[10px] font-mono text-text-dim uppercase mb-6">Market Session WR%</div>
+<div class="flex-1 space-y-4">
+<div class="flex items-center gap-4">
+<span class="text-[10px] font-mono text-text-dim w-16">LONDON</span>
+<div class="flex-1 h-3 bg-border overflow-hidden rounded-sm relative">
+<div class="absolute inset-0 bg-success/20 w-[61%]"></div>
+<span class="absolute right-2 top-0 bottom-0 flex items-center text-[9px] font-mono font-bold">61%</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-[10px] font-mono text-text-dim w-16">OVERLAP</span>
+<div class="flex-1 h-3 bg-border overflow-hidden rounded-sm relative">
+<div class="absolute inset-0 bg-primary/20 w-[52%]"></div>
+<span class="absolute right-2 top-0 bottom-0 flex items-center text-[9px] font-mono">52%</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-[10px] font-mono text-text-dim w-16">NEW YORK</span>
+<div class="flex-1 h-3 bg-border overflow-hidden rounded-sm relative">
+<div class="absolute inset-0 bg-danger/20 w-[38%]"></div>
+<span class="absolute right-2 top-0 bottom-0 flex items-center text-[9px] font-mono text-danger">38%</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-[10px] font-mono text-text-dim w-16">ASIAN</span>
+<div class="flex-1 h-3 bg-border overflow-hidden rounded-sm relative">
+<div class="absolute inset-0 bg-primary/20 w-[48%]"></div>
+<span class="absolute right-2 top-0 bottom-0 flex items-center text-[9px] font-mono">48%</span>
+</div>
+</div>
+</div>
+</div>
+<!-- P&L Histogram -->
+<div class="col-span-4 bg-card border border-border p-6 rounded-md">
+<div class="text-[10px] font-mono text-text-dim uppercase mb-6">Distribution Density</div>
+<div class="h-28 flex items-end justify-between gap-1 relative border-b border-border chart-grid">
+<div class="absolute left-1/2 top-0 bottom-0 w-px border-l border-dashed border-border z-0"></div>
+<div class="flex-1 bg-danger h-[20%] opacity-40"></div>
+<div class="flex-1 bg-danger h-[45%] opacity-60"></div>
+<div class="flex-1 bg-danger h-[30%] opacity-80"></div>
+<div class="flex-1 bg-success h-[65%] opacity-80"></div>
+<div class="flex-1 bg-success h-[90%]"></div>
+<div class="flex-1 bg-success h-[40%] opacity-60"></div>
+<div class="flex-1 bg-success h-[15%] opacity-30"></div>
+</div>
+<div class="flex justify-between mt-3 font-mono text-[9px] text-text-dim">
+<span>LOSS</span>
+<span>MEAN (+$12.4)</span>
+<span>GAIN</span>
+</div>
+</div>
+<!-- Confidence Curve -->
+<div class="col-span-8 bg-card border border-border p-6 rounded-md">
+<div class="flex justify-between items-center mb-8">
+<div class="text-[10px] font-mono text-text-dim uppercase tracking-widest">Efficiency / Confidence Curve</div>
+<div class="flex gap-4 font-mono text-[9px]">
+<span class="flex items-center gap-1.5 text-primary"><span class="w-1.5 h-1.5 rounded-full bg-primary"></span> MODEL WR%</span>
+<span class="flex items-center gap-1.5 text-text-dim"><span class="w-1.5 h-px bg-border border-b border-dashed border-text-dim"></span> BREAK-EVEN (50%)</span>
+</div>
+</div>
+<div class="h-44 w-full relative chart-grid border-l border-b border-border overflow-hidden">
+<!-- BE Line -->
+<div class="absolute top-1/2 w-full h-px border-b border-dashed border-text-dim/30"></div>
+<svg class="absolute inset-0 w-full h-full" preserveaspectratio="none" viewbox="0 0 800 176">
+<path d="M0,150 L160,140 L320,120 L480,90 L640,70 L800,40" fill="none" stroke="#7c6af7" stroke-linecap="round" stroke-width="1.5"></path>
+<circle cx="0" cy="150" fill="#7c6af7" r="2.5"></circle>
+<circle cx="160" cy="140" fill="#7c6af7" r="2.5"></circle>
+<circle cx="320" cy="120" fill="#7c6af7" r="2.5"></circle>
+<circle cx="480" cy="90" fill="#7c6af7" r="2.5"></circle>
+<circle cx="640" cy="70" fill="#7c6af7" r="2.5"></circle>
+<circle cx="800" cy="40" fill="#7c6af7" r="2.5"></circle>
+</svg>
+</div>
+<div class="flex justify-between mt-4 font-mono text-[9px] text-text-dim px-2">
+<span>65% CONF</span>
+<span>70%</span>
+<span>75%</span>
+<span>80%</span>
+<span>85%</span>
+<span>90%+ CONF</span>
+</div>
+</div>
+<!-- Exit Reasons -->
+<div class="col-span-4 bg-card border border-border p-6 rounded-md">
+<div class="text-[10px] font-mono text-text-dim uppercase mb-6">Exit Reason Attribution</div>
+<div class="space-y-4">
+<div class="flex justify-between items-center text-[10px] font-mono border-b border-border/50 pb-2">
+<span class="text-text-dim uppercase">Take Profit Hit</span>
+<div class="text-right">
+<div class="text-text-main">14 TRADES</div>
+<div class="text-success font-bold">100% WR</div>
+</div>
+</div>
+<div class="flex justify-between items-center text-[10px] font-mono border-b border-border/50 pb-2">
+<span class="text-text-dim uppercase">Trailing Stop</span>
+<div class="text-right">
+<div class="text-text-main">22 TRADES</div>
+<div class="text-success">87% WR</div>
+</div>
+</div>
+<div class="flex justify-between items-center text-[10px] font-mono border-b border-border/50 pb-2">
+<span class="text-text-dim uppercase">Manual / Intercept</span>
+<div class="text-right">
+<div class="text-text-main">3 TRADES</div>
+<div class="text-danger">33% WR</div>
+</div>
+</div>
+<div class="flex justify-between items-center text-[10px] font-mono">
+<span class="text-text-dim uppercase">Stop Loss Hit</span>
+<div class="text-right">
+<div class="text-text-main">8 TRADES</div>
+<div class="text-danger">0% WR</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Section 3: Funnel Analysis -->
+<div class="mb-12">
+<div class="flex items-center gap-4 mb-6">
+<span class="text-[10px] font-mono text-primary font-bold uppercase tracking-[0.2em]">03_Funnel_Dynamics</span>
+<div class="h-[1px] flex-1 bg-border/50"></div>
+</div>
+<div class="bg-card border border-border rounded-md overflow-hidden">
+<table class="w-full text-left font-mono text-[11px] border-collapse">
+<thead>
+<tr class="bg-card-alt text-text-dim border-b border-border">
+<th class="py-4 px-6 font-medium uppercase tracking-widest text-[10px]">Filter Logic Sequence</th>
+<th class="py-4 px-6 text-right font-medium uppercase tracking-widest text-[10px]">Blocks</th>
+<th class="py-4 px-6 text-right font-medium uppercase tracking-widest text-[10px]">% Cycles</th>
+<th class="py-4 px-6 text-right font-medium uppercase tracking-widest text-[10px]">Stress</th>
+</tr>
+</thead>
+<tbody>
+<tr class="bg-card hover:bg-card-alt transition-colors">
+<td class="py-4 px-6 text-text-main">Session Gate (Trading Hours)</td>
+<td class="py-4 px-6 text-right text-text-dim">569</td>
+<td class="py-4 px-6 text-right text-primary">67.2%</td>
+<td class="py-4 px-6 text-right">
+<div class="inline-block w-16 h-1 bg-border rounded-full overflow-hidden">
+<div class="h-full bg-success" style="width: 90%"></div>
+</div>
+</td>
+</tr>
+<tr class="bg-card-alt hover:bg-card transition-colors">
+<td class="py-4 px-6 text-text-main">ADX Trend Filter (ADX &lt; 20)</td>
+<td class="py-4 px-6 text-right text-text-dim">174</td>
+<td class="py-4 px-6 text-right text-primary">20.5%</td>
+<td class="py-4 px-6 text-right">
+<div class="inline-block w-16 h-1 bg-border rounded-full overflow-hidden">
+<div class="h-full bg-success" style="width: 60%"></div>
+</div>
+</td>
+</tr>
+<tr class="bg-card hover:bg-card-alt transition-colors">
+<td class="py-4 px-6 text-text-main">Volatility Guard (ATR &lt; 0.2)</td>
+<td class="py-4 px-6 text-right text-text-dim">48</td>
+<td class="py-4 px-6 text-right text-primary">5.7%</td>
+<td class="py-4 px-6 text-right">
+<div class="inline-block w-16 h-1 bg-border rounded-full overflow-hidden">
+<div class="h-full bg-success" style="width: 30%"></div>
+</div>
+</td>
+</tr>
+<tr class="bg-card-alt hover:bg-card transition-colors">
+<td class="py-4 px-6 text-text-main">News Block (ForexFactory API)</td>
+<td class="py-4 px-6 text-right text-text-dim">32</td>
+<td class="py-4 px-6 text-right text-primary">3.8%</td>
+<td class="py-4 px-6 text-right">
+<div class="inline-block w-16 h-1 bg-border rounded-full overflow-hidden">
+<div class="h-full bg-success" style="width: 15%"></div>
+</div>
+</td>
+</tr>
+</tbody>
+<tfoot>
+<tr class="bg-card-alt/50 border-t border-border">
+<td class="py-6 px-6" colspan="4">
+<div class="flex justify-end gap-12 font-mono text-[10px] uppercase tracking-widest text-text-dim">
+<div class="flex items-center gap-3">
+<span>Signal Hand-off</span>
+<span class="text-primary font-bold">156 (10.2%)</span>
+</div>
+<div class="flex items-center gap-3">
+<span>Terminal Conversion</span>
+<span class="text-primary font-bold">47 (3.1%)</span>
+</div>
+</div>
+</td>
+</tr>
+</tfoot>
+</table>
+</div>
+</div>
+</main>
+<!-- Decoration Background -->
+<div class="fixed inset-0 -z-10 pointer-events-none">
+<div class="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full"></div>
+<div class="absolute bottom-0 left-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full"></div>
+</div>
+</body></html>

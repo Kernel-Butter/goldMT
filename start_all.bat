@@ -35,7 +35,7 @@ start "GoldBot Bot" cmd /k "cd /d %~dp0 && venv\Scripts\activate && echo Bot sta
 timeout /t 3 /nobreak > nul
 
 echo  [3/3] Starting Dashboard...
-start "GoldBot Dashboard" cmd /k "cd /d %~dp0 && venv\Scripts\activate && streamlit run dashboard.py --server.headless true --server.port 8501"
+start "GoldBot Dashboard" cmd /k "cd /d %~dp0 && venv\Scripts\activate && python dashboard_api.py"
 timeout /t 4 /nobreak > nul
 
 echo.

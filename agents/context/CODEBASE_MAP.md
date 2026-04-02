@@ -1,6 +1,6 @@
 # CODEBASE MAP — GoldBot MT5
 > Maintained by Map (Context Agent). Update this file after every structural change.
-> Last updated: 2026-03-29
+> Last updated: 2026-03-31
 
 ---
 
@@ -80,12 +80,16 @@ goldMT/
 ## Key Functions by File
 
 ### `main.py`
+- `get_session() -> str` — returns asian/london/overlap/new_york/dead based on UTC hour
 - `build_market_data()` — fetches candles for H1/H4/D1, computes indicators
-- `run()` — main 60s loop: account → risk gate → market data → AI → trade
+- `check_closed_positions(prev, current, open_since)` — detects closed trades, writes exit data
+- `manage_open_positions(positions, tick, atr, trade_state)` — applies break-even stop (Phase 1) and ATR trailing stop (Phase 2) to every open position each cycle
+- `run()` — main 60s loop: account → closed position check → market data → position management → risk gate → AI → trade → context log
 
 ### `config.py`
 - Module-level constants only (no functions)
 - Key vars: `SYMBOL`, `TIMEFRAMES`, `BRIDGE_HOST/PORT`, `RISK_PER_TRADE`, `MAX_OPEN_TRADES`, `DAILY_LOSS_LIMIT`, `XAUUSD_DOLLAR_PER_LOT=100.0`, `CHECK_INTERVAL=60`
+- Trade management vars: `BE_TRIGGER_R=1.0`, `TRAIL_ATR_MULT=1.0`, `ATR_SANITY_MIN=2.0`, `MIN_SL_DIST=0.01`
 
 ### `groq_analyst.py`
 - `analyze(market_data: dict) -> dict` — returns `{action, confidence, reason, sl_dollars, tp_dollars}`
@@ -106,25 +110,31 @@ goldMT/
 - `get_account() -> dict`
 - `get_positions() -> list`
 - `place_order(symbol, action, lot, sl, tp) -> dict`
+- `modify_position(ticket, sl) -> dict` — moves SL of an open position to a new absolute price
 - `close_position(ticket) -> dict`
 - `_send(command) -> dict` — internal socket call
 
 ### `db.py`
-- `init_db()` — creates tables if not exist
-- `log_decision(...)` — inserts AI decision
-- `log_trade(...)` — inserts trade record
-- `log_equity(...)` — inserts equity snapshot
+- `init_db()` — creates all tables, migrates existing DB if columns missing
+- `log_decision(...) -> int` — inserts AI decision, returns row ID
+- `log_decision_context(decision_id, session, indicators, spread)` — stores indicator snapshot incl. h4_atr, ema_aligned
+- `log_trade(..., sl_dollars, tp_dollars)` — inserts trade record with risk parameters
+- `log_trade_event(ticket, event_type, old_sl, new_sl, current_price)` — logs BE/trail SL modifications
+- `update_trade_exit(ticket, exit_price, exit_time, pnl_dollars, close_reason, duration_minutes)` — fills in exit data
+- `log_equity(balance, equity)` — inserts equity snapshot
 - `get_decisions(limit) -> DataFrame`
 - `get_trades(limit) -> DataFrame`
+- `get_trade_history(limit) -> DataFrame` — trades joined with AI reason + market context for dashboard
 - `get_equity_history() -> DataFrame`
-- `get_stats() -> dict`
+- `get_stats() -> dict` — win_rate, total_pnl, avg_pnl
+- `get_session_stats() -> DataFrame` — win rate + P&L by session
 
 ### `dashboard.py`
 - `fetch_live()` — cached 15s, gets account + positions
 - Page layout: header → metrics → equity chart → positions + decisions → trade history
 
 ### `bridge/mt5_server.py`
-- `handle_command(data) -> dict` — routes commands to MT5 API
+- `handle_command(data) -> dict` — routes commands to MT5 API; handles: get_candles, get_tick, get_account, get_positions, place_order, modify_position, close_position, get_closed_deals
 - `handle_client(conn)` — per-client thread
 - Listens on `0.0.0.0:9999`
 
@@ -173,10 +183,45 @@ dashboard.py  →  browser :8501
 | action | TEXT | BUY / SELL |
 | lot | REAL | Position size |
 | entry_price | REAL | |
-| sl | REAL | Absolute price |
-| tp | REAL | Absolute price |
-| ticket | INTEGER | MT5 order ticket |
-| status | TEXT | filled / error |
+| sl | REAL | Absolute SL price |
+| tp | REAL | Absolute TP price |
+| sl_dollars | REAL | SL distance in $ from entry |
+| tp_dollars | REAL | TP distance in $ from entry |
+| planned_rr | REAL | tp_dollars / sl_dollars |
+| ticket | INTEGER | MT5 position ticket |
+| status | TEXT | open / closed |
+| exit_price | REAL | |
+| exit_time | TEXT | |
+| pnl_dollars | REAL | Realised P&L |
+| close_reason | TEXT | sl_hit / tp_hit / manual |
+| duration_minutes | REAL | |
+
+### Table: `trade_events`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INTEGER PK | |
+| timestamp | TEXT | |
+| ticket | INTEGER | Position ticket |
+| event_type | TEXT | be_triggered / trail_moved |
+| old_sl | REAL | SL before modification |
+| new_sl | REAL | SL after modification |
+| current_price | REAL | Gold price at event time |
+
+### Table: `decision_context`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INTEGER PK | |
+| decision_id | INTEGER | FK → decisions.id |
+| session | TEXT | asian / london / overlap / new_york / dead |
+| h1_rsi | REAL | RSI on H1 at decision time |
+| h4_rsi | REAL | RSI on H4 at decision time |
+| d1_rsi | REAL | RSI on D1 at decision time |
+| h1_ema20 | REAL | EMA20 on H1 at decision time |
+| h4_ema20 | REAL | EMA20 on H4 at decision time |
+| h1_atr | REAL | ATR on H1 at decision time |
+| spread | REAL | Bid/ask spread at decision time |
+| h4_atr | REAL | ATR on H4 — higher timeframe volatility context |
+| ema_aligned | INTEGER | +1 = H1+H4 bullish, -1 = bearish, 0 = mixed |
 
 ### Table: `equity_history`
 | Column | Type | Notes |
@@ -197,6 +242,9 @@ dashboard.py  →  browser :8501
 | `RISK_PER_TRADE` | `0.01` | 1% risk per trade; core risk rule |
 | `MAX_OPEN_TRADES` | `2` | Hard cap on concurrent positions |
 | `DAILY_LOSS_LIMIT` | `0.03` | 3% drawdown cutoff |
+| `ATR_SANITY_MIN` | `2.0` | Minimum plausible H1 ATR — guards against bad market data |
+| `BE_TRIGGER_R` | `1.0` | Break-even fires at 1× SL distance in profit |
+| `TRAIL_ATR_MULT` | `1.0` | ATR trail distance multiplier after break-even |
 
 ---
 

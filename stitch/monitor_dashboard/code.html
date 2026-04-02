@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>GoldBot — Monitor</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&amp;family=JetBrains+Mono:wght@500;700&amp;family=Space+Grotesk:wght@700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-secondary-fixed-variant": "#4228bb",
+                        "outline-variant": "#444654",
+                        "surface-container-low": "#191b24",
+                        "tertiary-container": "#00a754",
+                        "inverse-primary": "#2e53cd",
+                        "on-secondary-fixed": "#180065",
+                        "on-primary-fixed-variant": "#0338b5",
+                        "primary-container": "#6a89ff",
+                        "secondary-fixed": "#e4deff",
+                        "inverse-surface": "#e2e1ed",
+                        "primary": "#b7c4ff",
+                        "surface-variant": "#33343d",
+                        "on-tertiary": "#003918",
+                        "surface": "#11131b",
+                        "on-background": "#e2e1ed",
+                        "on-error-container": "#ffdad6",
+                        "on-primary": "#002683",
+                        "on-surface-variant": "#c4c5d6",
+                        "on-surface": "#e2e1ed",
+                        "on-primary-container": "#002073",
+                        "on-tertiary-fixed-variant": "#005226",
+                        "surface-container-highest": "#33343d",
+                        "error": "#ffb4ab",
+                        "on-error": "#690005",
+                        "outline": "#8e909f",
+                        "tertiary-fixed": "#62ff96",
+                        "surface-tint": "#b7c4ff",
+                        "secondary-container": "#442bbd",
+                        "inverse-on-surface": "#2e3039",
+                        "tertiary-fixed-dim": "#00e475",
+                        "background": "#11131b",
+                        "primary-fixed-dim": "#b7c4ff",
+                        "surface-container-high": "#282a32",
+                        "surface-bright": "#373942",
+                        "on-primary-fixed": "#001452",
+                        "surface-dim": "#11131b",
+                        "error-container": "#93000a",
+                        "on-tertiary-fixed": "#00210b",
+                        "tertiary": "#00e475",
+                        "secondary-fixed-dim": "#c7bfff",
+                        "secondary": "#c7bfff",
+                        "on-secondary": "#2b009e",
+                        "surface-container-lowest": "#0c0e16",
+                        "primary-fixed": "#dde1ff",
+                        "on-tertiary-container": "#003114",
+                        "on-secondary-container": "#b8afff",
+                        "surface-container": "#1d1f28"
+                    },
+                    fontFamily: {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "mono": ["JetBrains Mono"]
+                    },
+                    borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .chart-grid-line {
+            background-image: linear-gradient(to right, #1e2330 1px, transparent 1px), linear-gradient(to bottom, #1e2330 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        body { background-color: #0d0f17; }
+    </style>
+</head>
+<body class="font-body text-on-background antialiased selection:bg-primary selection:text-on-primary">
+<!-- TopAppBar Shell -->
+<header class="fixed top-0 w-full h-[40px] z-50 bg-[#0d0f17] border-b border-[#1e2330] flex justify-between items-center px-4">
+<div class="flex items-center gap-3">
+<span class="text-lg font-black tracking-tighter text-[#b7c4ff] uppercase font-headline">GoldBot</span>
+<span class="font-mono text-[11px] text-on-surface-variant tracking-wider uppercase opacity-60">XAUUSD</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<div class="w-1.5 h-1.5 bg-tertiary rounded-full animate-pulse"></div>
+<span class="font-label text-[10px] font-bold tracking-widest text-on-surface-variant">LIVE</span>
+</div>
+<div class="font-mono text-xs text-primary tracking-tight">14:32:07 UTC</div>
+<button class="hover:text-white transition-colors active:opacity-80 active:scale-95 flex items-center">
+<span class="material-symbols-outlined text-[18px]">refresh</span>
+</button>
+</div>
+</header>
+<!-- SideNavBar (Hidden on Mobile) + Content Wrapper -->
+<div class="flex h-screen pt-[40px]">
+<!-- Secondary Navigation (Monitor/Diagnostics) -->
+<nav class="fixed left-0 top-[40px] h-[40px] w-full bg-[#0d0f17] border-b border-[#1e2330] flex items-center px-4 z-40">
+<div class="flex gap-8 h-full items-center">
+<a class="text-[#b7c4ff] border-b-2 border-[#5b7cf7] h-full flex items-center px-2 font-label uppercase tracking-widest text-[11px] font-bold" href="#">Monitor</a>
+<a class="text-slate-500 hover:text-white transition-colors h-full flex items-center px-2 font-label uppercase tracking-widest text-[11px]" href="#">Diagnostics</a>
+</div>
+</nav>
+<!-- Main Stage -->
+<main class="flex-1 mt-[40px] p-4 overflow-y-auto space-y-4">
+<!-- Row 1: Metrics Tiles -->
+<section class="grid grid-cols-2 md:grid-cols-6 gap-3">
+<div class="bg-surface-container-low border border-outline-variant/20 p-3 rounded-xl">
+<span class="block font-label text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Balance</span>
+<span class="block font-mono text-2xl font-bold text-primary">$10,000.00</span>
+</div>
+<div class="bg-surface-container-low border border-outline-variant/20 p-3 rounded-xl">
+<span class="block font-label text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Equity</span>
+<div class="flex items-baseline gap-2">
+<span class="font-mono text-2xl font-bold text-primary">$10,042.00</span>
+<span class="font-mono text-[11px] text-tertiary">▲ +$42.00</span>
+</div>
+</div>
+<div class="bg-surface-container-low border border-outline-variant/20 p-3 rounded-xl">
+<span class="block font-label text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Open</span>
+<span class="block font-mono text-2xl font-bold text-primary">1</span>
+</div>
+<div class="bg-surface-container-low border border-outline-variant/20 p-3 rounded-xl">
+<span class="block font-label text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Total Orders</span>
+<span class="block font-mono text-2xl font-bold text-primary">47</span>
+</div>
+<div class="bg-surface-container-low border border-outline-variant/20 p-3 rounded-xl">
+<span class="block font-label text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Win Rate</span>
+<div class="flex items-baseline gap-2">
+<span class="font-mono text-2xl font-bold text-primary">58.3%</span>
+<span class="font-mono text-[10px] text-on-surface-variant opacity-50">21/36</span>
+</div>
+</div>
+<div class="bg-surface-container-low border border-outline-variant/20 p-3 rounded-xl">
+<span class="block font-label text-[11px] uppercase tracking-widest text-on-surface-variant mb-1">Total P&amp;L</span>
+<div class="flex items-baseline gap-2">
+<span class="font-mono text-2xl font-bold text-tertiary">+$312.40</span>
+<span class="font-mono text-[10px] text-tertiary opacity-70">avg +$8.68</span>
+</div>
+</div>
+</section>
+<!-- Row 2: Live Candlestick Chart -->
+<section class="bg-surface-container rounded-xl border border-outline-variant/30 overflow-hidden">
+<div class="h-10 border-b border-outline-variant/20 flex items-center justify-between px-4 bg-surface-container-low">
+<div class="flex items-center gap-2">
+<span class="font-mono text-xs text-primary font-bold">XAUUSD, H1</span>
+<div class="flex gap-1 ml-4">
+<button class="px-2 py-1 bg-surface-container-high rounded text-[10px] font-mono border border-outline-variant/40">H1</button>
+<button class="px-2 py-1 hover:bg-surface-container-high rounded text-[10px] font-mono transition-colors">H4</button>
+<button class="px-2 py-1 hover:bg-surface-container-high rounded text-[10px] font-mono transition-colors">D1</button>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-[10px] font-label text-on-surface-variant tracking-wider uppercase opacity-50">View</span>
+<button class="px-2 py-1 bg-surface-container-high rounded text-[10px] font-mono border border-outline-variant/40">200 CANDLES</button>
+</div>
+</div>
+<div class="h-[500px] relative chart-grid-line p-4 flex flex-col gap-2">
+<!-- Candlestick Visualization Stage (Abstracted) -->
+<div class="flex-grow relative overflow-hidden">
+<!-- EMA Overlays -->
+<div class="absolute top-[40%] w-full h-[2px] bg-[#fbbf24]/30 z-10 blur-[0.5px]"></div> <!-- EMA20 -->
+<div class="absolute top-[50%] w-full h-[2px] bg-[#f97316]/30 z-10 blur-[0.5px]"></div> <!-- EMA50 -->
+<!-- Price Tapes (Mock) -->
+<div class="absolute left-1/4 bottom-1/4 flex flex-col items-center gap-1">
+<span class="material-symbols-outlined text-tertiary text-sm" style="font-variation-settings: 'FILL' 1;">change_history</span>
+<span class="bg-tertiary/20 text-tertiary text-[8px] font-bold px-1 rounded">BUY</span>
+</div>
+<div class="absolute left-1/2 top-1/3 flex flex-col items-center gap-1">
+<span class="material-symbols-outlined text-error text-sm rotate-180" style="font-variation-settings: 'FILL' 1;">change_history</span>
+<span class="bg-error/20 text-error text-[8px] font-bold px-1 rounded">SELL</span>
+</div>
+<div class="absolute left-3/4 bottom-[45%]">
+<span class="material-symbols-outlined text-tertiary text-sm">close</span>
+<span class="absolute -top-4 left-1/2 -translate-x-1/2 text-[8px] font-bold text-tertiary">WIN</span>
+</div>
+<!-- Mock Candlesticks -->
+<div class="flex items-end h-full gap-4 opacity-80">
+<div class="w-3 bg-[#4d1a1a] h-1/2 relative border-x border-[#ff5252]"><div class="absolute left-1/2 w-px h-full -top-4 -bottom-4 bg-[#ff5252]"></div></div>
+<div class="w-3 bg-[#1a4d2e] h-2/3 relative border-x border-[#00e676]"><div class="absolute left-1/2 w-px h-full -top-2 -bottom-2 bg-[#00e676]"></div></div>
+<div class="w-3 bg-[#1a4d2e] h-3/4 relative border-x border-[#00e676]"><div class="absolute left-1/2 w-px h-full -top-1 -bottom-3 bg-[#00e676]"></div></div>
+<div class="w-3 bg-[#4d1a1a] h-[40%] relative border-x border-[#ff5252]"><div class="absolute left-1/2 w-px h-full -top-6 -bottom-2 bg-[#ff5252]"></div></div>
+<div class="w-3 bg-[#1a4d2e] h-[55%] relative border-x border-[#00e676]"><div class="absolute left-1/2 w-px h-full -top-2 -bottom-4 bg-[#00e676]"></div></div>
+</div>
+</div>
+<!-- RSI Area -->
+<div class="h-32 border-t border-outline-variant/30 pt-2 relative">
+<span class="absolute left-2 top-2 font-mono text-[9px] text-on-surface-variant/40">RSI (14)</span>
+<div class="absolute top-0 w-full border-t border-error/50 border-dotted h-0 mt-4"></div> <!-- 70 -->
+<div class="absolute top-1/2 w-full border-t border-primary/30 border-dotted h-0"></div> <!-- 50 -->
+<div class="absolute bottom-0 w-full border-t border-tertiary/50 border-dotted h-0 mb-4"></div> <!-- 30 -->
+<!-- RSI Purple Line -->
+<svg class="w-full h-full opacity-60" preserveaspectratio="none">
+<path d="M0 80 Q 100 20, 200 60 T 400 30 T 600 70 T 800 40 T 1000 60" fill="none" stroke="#b8afff" stroke-width="1.5"></path>
+</svg>
+</div>
+</div>
+</section>
+<!-- Row 3: Open Positions / AI Decisions -->
+<section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+<!-- Left: Open Positions -->
+<div class="bg-surface-container rounded-xl border border-outline-variant/20 p-4">
+<h3 class="font-label text-[11px] uppercase tracking-widest text-on-surface-variant mb-4">Open Positions</h3>
+<div class="bg-surface-container-low rounded-lg p-3 border border-outline-variant/10 flex justify-between items-center">
+<div class="flex items-center gap-3">
+<div class="p-2 bg-tertiary/10 rounded-lg">
+<span class="material-symbols-outlined text-tertiary text-sm" style="font-variation-settings: 'FILL' 1;">change_history</span>
+</div>
+<div>
+<div class="flex items-baseline gap-2">
+<span class="font-mono font-bold text-sm text-primary">BUY 0.01</span>
+<span class="text-[10px] font-mono text-on-surface-variant">@ $3,024.50</span>
+</div>
+<div class="font-mono text-[10px] text-outline opacity-70">SL 3010.00 | TP 3080.00 | #84729141</div>
+</div>
+</div>
+<span class="font-mono text-lg font-bold text-tertiary">+$18.20</span>
+</div>
+</div>
+<!-- Right: Recent AI Decisions -->
+<div class="bg-surface-container rounded-xl border border-outline-variant/20 flex flex-col h-full">
+<h3 class="font-label text-[11px] uppercase tracking-widest text-on-surface-variant p-4 pb-2">Recent AI Decisions</h3>
+<div class="flex-grow overflow-y-auto px-4 pb-4 space-y-2 max-h-[160px]">
+<div class="flex items-center justify-between py-2 border-b border-outline-variant/10 last:border-0">
+<div class="flex items-center gap-3">
+<span class="font-mono text-[10px] text-outline">14:31</span>
+<span class="bg-tertiary text-on-tertiary text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">Buy</span>
+<span class="font-mono text-[10px] text-primary">82% CONF</span>
+</div>
+<span class="text-[10px] text-on-surface-variant truncate max-w-[150px]">RSI Oversold + 4H Bullish Divergence...</span>
+</div>
+<div class="flex items-center justify-between py-2 border-b border-outline-variant/10 last:border-0">
+<div class="flex items-center gap-3">
+<span class="font-mono text-[10px] text-outline">14:15</span>
+<span class="bg-surface-variant text-on-surface-variant text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">No-Trade</span>
+<span class="font-mono text-[10px] text-primary">95% CONF</span>
+</div>
+<span class="text-[10px] text-on-surface-variant truncate max-w-[150px]">Low volatility ahead of NY open...</span>
+</div>
+<div class="flex items-center justify-between py-2 border-b border-outline-variant/10 last:border-0">
+<div class="flex items-center gap-3">
+<span class="font-mono text-[10px] text-outline">14:02</span>
+<span class="bg-error text-on-error text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">Exit</span>
+<span class="font-mono text-[10px] text-primary">77% CONF</span>
+</div>
+<span class="text-[10px] text-on-surface-variant truncate max-w-[150px]">Trailing stop hit near resistance...</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Row 4: Trade History Table -->
+<section class="bg-surface-container rounded-xl border border-outline-variant/20 overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low border-b border-outline-variant/20">
+<tr>
+<th class="p-3 font-label text-[10px] uppercase tracking-widest text-outline">Time</th>
+<th class="p-3 font-label text-[10px] uppercase tracking-widest text-outline">Dir</th>
+<th class="p-3 font-label text-[10px] uppercase tracking-widest text-outline">Lots</th>
+<th class="p-3 font-label text-[10px] uppercase tracking-widest text-outline">Entry/Exit</th>
+<th class="p-3 font-label text-[10px] uppercase tracking-widest text-outline text-right">P&amp;L</th>
+<th class="p-3 font-label text-[10px] uppercase tracking-widest text-outline">Outcome</th>
+<th class="p-3 font-label text-[10px] uppercase tracking-widest text-outline">Session</th>
+<th class="p-3 font-label text-[10px] uppercase tracking-widest text-outline">AI Reason</th>
+</tr>
+</thead>
+<tbody class="font-mono text-[11px]">
+<tr class="bg-surface hover:bg-surface-container-high transition-colors">
+<td class="p-3 text-on-surface-variant">12:05:42</td>
+<td class="p-3 text-tertiary">BUY</td>
+<td class="p-3">0.05</td>
+<td class="p-3">3021 / 3035</td>
+<td class="p-3 text-tertiary text-right font-bold">+$72.10</td>
+<td class="p-3"><span class="text-tertiary">TP Hit</span></td>
+<td class="p-3"><span class="bg-primary/10 text-primary px-1.5 py-0.5 rounded-full text-[9px] lowercase">london</span></td>
+<td class="p-3 text-on-surface-variant opacity-70">EMA Crossover H1</td>
+</tr>
+<tr class="bg-surface-container-low hover:bg-surface-container-high transition-colors">
+<td class="p-3 text-on-surface-variant">11:40:11</td>
+<td class="p-3 text-error">SELL</td>
+<td class="p-3">0.02</td>
+<td class="p-3">3040 / 3044</td>
+<td class="p-3 text-error text-right font-bold">-$8.00</td>
+<td class="p-3"><span class="text-error">SL Hit</span></td>
+<td class="p-3"><span class="bg-primary/10 text-primary px-1.5 py-0.5 rounded-full text-[9px] lowercase">london</span></td>
+<td class="p-3 text-on-surface-variant opacity-70">False Breakout</td>
+</tr>
+<tr class="bg-surface hover:bg-surface-container-high transition-colors">
+<td class="p-3 text-on-surface-variant">09:12:00</td>
+<td class="p-3 text-tertiary">BUY</td>
+<td class="p-3">0.01</td>
+<td class="p-3">3015 / 3019</td>
+<td class="p-3 text-tertiary text-right font-bold">+$4.40</td>
+<td class="p-3"><span class="text-amber-400">Trail</span></td>
+<td class="p-3"><span class="bg-primary/10 text-primary px-1.5 py-0.5 rounded-full text-[9px] lowercase">overlap</span></td>
+<td class="p-3 text-on-surface-variant opacity-70">RSI Rebound</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Row 5: Equity Curve -->
+<section class="bg-surface-container rounded-xl border border-outline-variant/20 p-4 h-[220px] flex flex-col">
+<h3 class="font-label text-[11px] uppercase tracking-widest text-on-surface-variant mb-4">Account Performance (Equity vs Balance)</h3>
+<div class="flex-grow flex items-end gap-0 relative">
+<!-- Grid Lines and Y-Axis -->
+<div class="absolute right-0 h-full flex flex-col justify-between py-2 text-[9px] font-mono text-outline/40">
+<span>$10,200</span>
+<span>$10,100</span>
+<span>$10,000</span>
+</div>
+<!-- SVG Chart Logic -->
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 1000 200">
+<!-- Balance Line (Dashed) -->
+<line opacity="0.3" stroke="#5b7cf7" stroke-dasharray="4,4" stroke-width="1" x1="0" x2="1000" y1="180" y2="180"></line>
+<!-- Equity Fill Area -->
+<path d="M0 200 L0 180 Q 250 160, 500 140 T 1000 100 L 1000 200 Z" fill="#b8afff" fill-opacity="0.07"></path>
+<!-- Equity Line -->
+<path d="M0 180 Q 250 160, 500 140 T 1000 100" fill="none" stroke="#b8afff" stroke-width="2"></path>
+</svg>
+</div>
+</section>
+</main>
+</div>
+</body></html>

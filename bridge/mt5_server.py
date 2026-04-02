@@ -12,6 +12,7 @@ Setup:
 import socket
 import json
 import threading
+from datetime import datetime, timedelta
 import MetaTrader5 as mt5
 
 HOST = "0.0.0.0"   # listen on all interfaces
@@ -84,6 +85,23 @@ def handle_command(cmd: dict) -> dict:
             return {"error": f"Order failed: {result.comment}", "retcode": result.retcode}
         return {"ticket": result.order, "status": "ok"}
 
+    elif action == "modify_position":
+        positions = mt5.positions_get(ticket=cmd["ticket"])
+        if not positions:
+            return {"error": "Position not found"}
+        pos = positions[0]
+        request = {
+            "action":   mt5.TRADE_ACTION_SLTP,
+            "symbol":   pos.symbol,
+            "position": pos.ticket,
+            "sl":       cmd["sl"],
+            "tp":       pos.tp,   # keep existing TP unchanged
+        }
+        result = mt5.order_send(request)
+        if result.retcode != mt5.TRADE_RETCODE_DONE:
+            return {"error": f"Modify failed: {result.comment}", "retcode": result.retcode}
+        return {"status": "ok", "ticket": cmd["ticket"]}
+
     elif action == "close_position":
         positions = mt5.positions_get(ticket=cmd["ticket"])
         if not positions:
@@ -109,6 +127,25 @@ def handle_command(cmd: dict) -> dict:
         if result.retcode != mt5.TRADE_RETCODE_DONE:
             return {"error": f"Close failed: {result.comment}"}
         return {"status": "closed", "ticket": cmd["ticket"]}
+
+    elif action == "get_closed_deals":
+        # Fetch closing deals by GoldBot (magic 123456) since from_timestamp
+        from_ts = cmd.get("from_timestamp", 0)
+        from_date = datetime.fromtimestamp(from_ts) if from_ts else datetime.now() - timedelta(hours=24)
+        deals = mt5.history_deals_get(from_date, datetime.now())
+        if deals is None:
+            return []
+        return [
+            {
+                "ticket":  int(d.position_id),  # position ticket — matches open positions tracking
+                "price":   float(d.price),
+                "profit":  float(d.profit),
+                "time":    int(d.time),
+                "volume":  float(d.volume),
+            }
+            for d in deals
+            if d.magic == 123456 and d.entry == 1  # entry==1 means closing deal
+        ]
 
     else:
         return {"error": f"Unknown command: {action}"}
