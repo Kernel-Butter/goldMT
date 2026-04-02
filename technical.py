@@ -40,6 +40,58 @@ def atr(highs: list, lows: list, closes: list, period: int = 14) -> float:
     return round(sum(true_ranges[-period:]) / period, 5)
 
 
+def adx(highs: list, lows: list, closes: list, period: int = 14) -> float:
+    """Average Directional Index — returns 0-100 trend strength.
+    < 20 = ranging/choppy, 20-25 = developing, > 25 = trending."""
+    if len(highs) < period * 2:
+        return 0.0
+
+    plus_dm_list, minus_dm_list, tr_list = [], [], []
+    for i in range(1, len(highs)):
+        up   = highs[i] - highs[i - 1]
+        down = lows[i - 1] - lows[i]
+        plus_dm_list.append(up   if (up > down and up > 0)   else 0)
+        minus_dm_list.append(down if (down > up and down > 0) else 0)
+        tr_list.append(max(
+            highs[i] - lows[i],
+            abs(highs[i] - closes[i - 1]),
+            abs(lows[i]  - closes[i - 1])
+        ))
+
+    def wilder(data):
+        val = sum(data[:period])
+        result = [val]
+        for x in data[period:]:
+            val = val - val / period + x
+            result.append(val)
+        return result
+
+    sm_plus  = wilder(plus_dm_list)
+    sm_minus = wilder(minus_dm_list)
+    sm_tr    = wilder(tr_list)
+
+    dx_list = []
+    for p, m, t in zip(sm_plus, sm_minus, sm_tr):
+        if t == 0:
+            continue
+        plus_di  = 100 * p / t
+        minus_di = 100 * m / t
+        di_sum   = plus_di + minus_di
+        if di_sum == 0:
+            continue
+        dx_list.append(100 * abs(plus_di - minus_di) / di_sum)
+
+    if not dx_list:
+        return 0.0
+    if len(dx_list) < period:
+        return round(sum(dx_list) / len(dx_list), 2)
+
+    adx_val = sum(dx_list[:period]) / period
+    for dx in dx_list[period:]:
+        adx_val = (adx_val * (period - 1) + dx) / period
+    return round(adx_val, 2)
+
+
 def get_indicators(candles: list) -> dict:
     """
     Takes a list of OHLCV dicts and returns indicators.
@@ -52,7 +104,8 @@ def get_indicators(candles: list) -> dict:
         "rsi":   rsi(closes),
         "ema20": ema(closes, 20),
         "ema50": ema(closes, 50),
-        "atr":   atr(highs, lows, closes)
+        "atr":   atr(highs, lows, closes),
+        "adx":   adx(highs, lows, closes),
     }
 
 

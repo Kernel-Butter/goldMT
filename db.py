@@ -35,7 +35,9 @@ def init_db():
             h1_ema20    REAL,
             h4_ema20    REAL,
             h1_atr      REAL,
-            spread      REAL
+            spread      REAL,
+            h4_atr      REAL,
+            ema_aligned INTEGER
         )
     """)
 
@@ -55,22 +57,12 @@ def init_db():
             exit_time        TEXT,
             pnl_dollars      REAL,
             close_reason     TEXT,
-            duration_minutes REAL
+            duration_minutes REAL,
+            sl_dollars       REAL,
+            tp_dollars       REAL,
+            planned_rr       REAL
         )
     """)
-
-    # Migrate existing trades table if columns are missing
-    existing = {row[1] for row in c.execute("PRAGMA table_info(trades)")}
-    for col, definition in [
-        ("decision_id",      "INTEGER"),
-        ("exit_price",       "REAL"),
-        ("exit_time",        "TEXT"),
-        ("pnl_dollars",      "REAL"),
-        ("close_reason",     "TEXT"),
-        ("duration_minutes", "REAL"),
-    ]:
-        if col not in existing:
-            c.execute(f"ALTER TABLE trades ADD COLUMN {col} {definition}")
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS equity_history (
@@ -80,6 +72,44 @@ def init_db():
             equity    REAL  NOT NULL
         )
     """)
+
+    # SL modification events — every break-even and trail step is logged here
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS trade_events (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp     TEXT    NOT NULL,
+            ticket        INTEGER NOT NULL,
+            event_type    TEXT    NOT NULL,
+            old_sl        REAL,
+            new_sl        REAL,
+            current_price REAL
+        )
+    """)
+
+    # Migrate trades table — add strategy-analysis columns if missing
+    existing_trades = {row[1] for row in c.execute("PRAGMA table_info(trades)")}
+    for col, definition in [
+        ("decision_id",      "INTEGER"),
+        ("exit_price",       "REAL"),
+        ("exit_time",        "TEXT"),
+        ("pnl_dollars",      "REAL"),
+        ("close_reason",     "TEXT"),
+        ("duration_minutes", "REAL"),
+        ("sl_dollars",       "REAL"),
+        ("tp_dollars",       "REAL"),
+        ("planned_rr",       "REAL"),
+    ]:
+        if col not in existing_trades:
+            c.execute(f"ALTER TABLE trades ADD COLUMN {col} {definition}")
+
+    # Migrate decision_context — add richer market context columns if missing
+    existing_ctx = {row[1] for row in c.execute("PRAGMA table_info(decision_context)")}
+    for col, definition in [
+        ("h4_atr",     "REAL"),
+        ("ema_aligned", "INTEGER"),
+    ]:
+        if col not in existing_ctx:
+            c.execute(f"ALTER TABLE decision_context ADD COLUMN {col} {definition}")
 
     conn.commit()
     conn.close()
@@ -113,8 +143,8 @@ def log_decision_context(decision_id: int, session: str, indicators: dict, sprea
     conn = sqlite3.connect(DB_PATH)
     conn.execute(
         "INSERT INTO decision_context "
-        "(decision_id,session,h1_rsi,h4_rsi,d1_rsi,h1_ema20,h4_ema20,h1_atr,spread) "
-        "VALUES (?,?,?,?,?,?,?,?,?)",
+        "(decision_id,session,h1_rsi,h4_rsi,d1_rsi,h1_ema20,h4_ema20,h1_atr,spread,h4_atr,ema_aligned) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
         (
             decision_id,
             session,
@@ -125,6 +155,8 @@ def log_decision_context(decision_id: int, session: str, indicators: dict, sprea
             indicators.get("h4_ema20"),
             indicators.get("h1_atr"),
             spread,
+            indicators.get("h4_atr"),
+            indicators.get("ema_aligned"),
         )
     )
     conn.commit()
@@ -132,12 +164,17 @@ def log_decision_context(decision_id: int, session: str, indicators: dict, sprea
 
 
 def log_trade(action: str, lot: float, entry_price: float,
-              sl: float, tp: float, ticket: int, decision_id: int = None):
+              sl: float, tp: float, ticket: int, decision_id: int = None,
+              sl_dollars: float = None, tp_dollars: float = None):
+    planned_rr = (round(tp_dollars / sl_dollars, 2)
+                  if sl_dollars and tp_dollars and sl_dollars > 0 else None)
     conn = sqlite3.connect(DB_PATH)
     conn.execute(
-        "INSERT INTO trades (timestamp,action,lot,entry_price,sl,tp,ticket,decision_id) "
-        "VALUES (?,?,?,?,?,?,?,?)",
-        (_now(), action, lot, entry_price, sl, tp, ticket, decision_id)
+        "INSERT INTO trades "
+        "(timestamp,action,lot,entry_price,sl,tp,ticket,decision_id,sl_dollars,tp_dollars,planned_rr) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        (_now(), action, lot, entry_price, sl, tp, ticket, decision_id,
+         sl_dollars, tp_dollars, planned_rr)
     )
     conn.commit()
     conn.close()
@@ -167,6 +204,19 @@ def log_equity(balance: float, equity: float):
     conn.close()
 
 
+def log_trade_event(ticket: int, event_type: str, old_sl: float,
+                    new_sl: float, current_price: float):
+    """Log a SL modification event (be_triggered or trail_moved) for post-trade analysis."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT INTO trade_events (timestamp,ticket,event_type,old_sl,new_sl,current_price) "
+        "VALUES (?,?,?,?,?,?)",
+        (_now(), ticket, event_type, old_sl, new_sl, current_price)
+    )
+    conn.commit()
+    conn.close()
+
+
 # ── Read helpers ──────────────────────────────────────────
 
 def get_decisions(limit: int = 100) -> pd.DataFrame:
@@ -183,6 +233,45 @@ def get_trades(limit: int = 100) -> pd.DataFrame:
     df = pd.read_sql(
         "SELECT * FROM trades ORDER BY id DESC LIMIT ?", conn, params=(limit,)
     )
+    conn.close()
+    return df
+
+
+def get_trade_history(limit: int = 100) -> pd.DataFrame:
+    """
+    Trades joined with AI reason and market context — used for the dashboard trade history table.
+    Includes every column needed to review and improve the strategy.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    df = pd.read_sql("""
+        SELECT
+            t.timestamp        AS entry_time,
+            t.action,
+            t.lot,
+            t.entry_price,
+            t.sl_dollars,
+            t.tp_dollars,
+            t.planned_rr,
+            t.exit_price,
+            t.exit_time,
+            t.pnl_dollars,
+            t.close_reason,
+            t.duration_minutes,
+            t.status,
+            t.ticket,
+            d.reason           AS ai_reason,
+            d.confidence,
+            dc.session,
+            dc.h1_rsi,
+            dc.h1_atr,
+            dc.h4_atr,
+            dc.ema_aligned
+        FROM trades t
+        LEFT JOIN decisions d         ON t.decision_id = d.id
+        LEFT JOIN decision_context dc ON t.decision_id = dc.decision_id
+        ORDER BY t.id DESC
+        LIMIT ?
+    """, conn, params=(limit,))
     conn.close()
     return df
 

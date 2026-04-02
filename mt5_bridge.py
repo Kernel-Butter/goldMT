@@ -58,6 +58,11 @@ def place_order(symbol: str, action: str, lot: float, sl: float, tp: float) -> d
     })
 
 
+def modify_position(ticket: int, sl: float) -> dict:
+    """Move the stop loss of an open position to a new absolute price level."""
+    return _send({"cmd": "modify_position", "ticket": ticket, "sl": sl})
+
+
 def close_position(ticket: int) -> dict:
     """Close a position by ticket number."""
     return _send({"cmd": "close_position", "ticket": ticket})

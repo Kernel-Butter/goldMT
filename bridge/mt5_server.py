@@ -85,6 +85,23 @@ def handle_command(cmd: dict) -> dict:
             return {"error": f"Order failed: {result.comment}", "retcode": result.retcode}
         return {"ticket": result.order, "status": "ok"}
 
+    elif action == "modify_position":
+        positions = mt5.positions_get(ticket=cmd["ticket"])
+        if not positions:
+            return {"error": "Position not found"}
+        pos = positions[0]
+        request = {
+            "action":   mt5.TRADE_ACTION_SLTP,
+            "symbol":   pos.symbol,
+            "position": pos.ticket,
+            "sl":       cmd["sl"],
+            "tp":       pos.tp,   # keep existing TP unchanged
+        }
+        result = mt5.order_send(request)
+        if result.retcode != mt5.TRADE_RETCODE_DONE:
+            return {"error": f"Modify failed: {result.comment}", "retcode": result.retcode}
+        return {"status": "ok", "ticket": cmd["ticket"]}
+
     elif action == "close_position":
         positions = mt5.positions_get(ticket=cmd["ticket"])
         if not positions:
@@ -120,7 +137,7 @@ def handle_command(cmd: dict) -> dict:
             return []
         return [
             {
-                "ticket":  int(d.order),   # order/position ticket
+                "ticket":  int(d.position_id),  # position ticket — matches open positions tracking
                 "price":   float(d.price),
                 "profit":  float(d.profit),
                 "time":    int(d.time),

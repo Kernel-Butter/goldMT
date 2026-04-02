@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 import mt5_bridge as bridge
 from config import SYMBOL
 from db import (
-    init_db, get_decisions, get_trades, get_chart_trades,
+    init_db, get_decisions, get_trade_history, get_chart_trades,
     get_equity_history, get_stats, get_session_stats,
 )
 
@@ -175,9 +175,9 @@ equity       = account.get("equity", 0)
 pnl          = equity - balance
 eq_hist      = get_equity_history()
 stats        = get_stats()
-decisions_df = get_decisions(50)
-trades_df    = get_trades(50)
-chart_trades = get_chart_trades(200)
+decisions_df  = get_decisions(50)
+trade_hist_df = get_trade_history(50)
+chart_trades  = get_chart_trades(200)
 session_df   = get_session_stats()
 
 # ── Header ────────────────────────────────────────────────
@@ -491,29 +491,63 @@ with col_dec:
 
 # ── Trade History ─────────────────────────────────────────
 st.markdown('<p class="section-header">Trade History</p>', unsafe_allow_html=True)
-if not trades_df.empty:
-    cols = ["timestamp", "action", "lot", "entry_price", "exit_price",
-            "pnl_dollars", "close_reason", "duration_minutes", "ticket"]
-    available = [c for c in cols if c in trades_df.columns]
-    display = trades_df[available].copy()
-    display.rename(columns={
-        "timestamp": "Time", "action": "Action", "lot": "Lot",
-        "entry_price": "Entry", "exit_price": "Exit", "pnl_dollars": "P&L",
-        "close_reason": "Reason", "duration_minutes": "Mins", "ticket": "Ticket"
-    }, inplace=True)
-    display["Time"] = display["Time"].str[:16].str.replace("T", " ")
+if not trade_hist_df.empty:
+    th = trade_hist_df.copy()
+
+    # ── Format display columns ─────────────────────────────
+    th["Time"]    = th["entry_time"].str[:16].str.replace("T", " ", regex=False)
+    th["Exit"]    = th["exit_price"].apply(lambda v: f"${v:,.2f}" if pd.notna(v) else "—")
+    th["Mins"]    = th["duration_minutes"].apply(lambda v: f"{v:.0f}" if pd.notna(v) else "—")
+    th["P&L"]     = th["pnl_dollars"].apply(
+        lambda v: f"+${v:,.2f}" if (pd.notna(v) and v > 0)
+        else (f"-${abs(v):,.2f}" if pd.notna(v) else "—")
+    )
+
+    # Close reason → readable outcome
+    reason_map = {"tp_hit": "TP Hit", "sl_hit": "SL Hit",
+                  "trail_moved": "Trail", "manual": "Manual"}
+    th["Outcome"] = th["close_reason"].apply(
+        lambda v: reason_map.get(v, v) if pd.notna(v) else "OPEN"
+    )
+
+    # EMA alignment → readable
+    align_map = {1: "↑ Aligned", -1: "↓ Aligned", 0: "Mixed"}
+    th["EMA"] = th["ema_aligned"].apply(lambda v: align_map.get(v, "—") if pd.notna(v) else "—")
+
+    # Truncate AI reason for table display
+    th["Reason"] = th["ai_reason"].apply(
+        lambda v: (str(v)[:80] + "…") if pd.notna(v) and len(str(v)) > 80 else (str(v) if pd.notna(v) else "—")
+    )
+
+    th["Conf"]    = th["confidence"].apply(lambda v: f"{v:.0%}" if pd.notna(v) else "—")
+    th["RSI H1"]  = th["h1_rsi"].apply(lambda v: f"{v:.1f}" if pd.notna(v) else "—")
+    th["Session"] = th["session"].fillna("—")
+    th["RR Plan"] = th["planned_rr"].apply(lambda v: f"{v:.1f}R" if pd.notna(v) else "—")
+
+    display_cols = ["Time", "Action", "Lot", "Entry", "Exit",
+                    "P&L", "Mins", "Outcome", "RR Plan",
+                    "Session", "Conf", "RSI H1", "EMA", "Reason"]
+
+    # Columns that exist in entry_price but need renaming
+    th = th.rename(columns={"entry_price": "Entry", "lot": "Lot", "action": "Action"})
+
+    display = th[display_cols]
+
+    # Color P&L rows via pandas Styler
+    def _style_pnl(row):
+        val = row.get("P&L", "—")
+        if val.startswith("+"):
+            return ["color: #00e676" if i == display_cols.index("P&L") else "" for i in range(len(row))]
+        elif val.startswith("-"):
+            return ["color: #ff5252" if i == display_cols.index("P&L") else "" for i in range(len(row))]
+        return [""] * len(row)
+
+    styled = display.style.apply(_style_pnl, axis=1)
+
     st.dataframe(
-        display,
+        styled,
         use_container_width=True,
         hide_index=True,
-        column_config={
-            "Action": st.column_config.TextColumn("Action", width="small"),
-            "Lot":    st.column_config.NumberColumn("Lot",    format="%.2f"),
-            "Entry":  st.column_config.NumberColumn("Entry",  format="$%.2f"),
-            "Exit":   st.column_config.NumberColumn("Exit",   format="$%.2f"),
-            "P&L":    st.column_config.NumberColumn("P&L",    format="$%+.2f"),
-            "Mins":   st.column_config.NumberColumn("Mins",   format="%.0f"),
-        }
     )
 else:
     st.info("Trade history will appear after the first order is placed.")

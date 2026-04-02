@@ -26,5 +26,11 @@ DAILY_LOSS_LIMIT = 0.03    # 3% daily drawdown limit
 # Holds for IC Markets, XM, Pepperstone, most MT5 brokers.
 XAUUSD_DOLLAR_PER_LOT = 100.0
 
+# --- Trade Management ---
+BE_TRIGGER_R   = 1.0      # move SL to break-even when profit reaches 1× original SL distance
+TRAIL_ATR_MULT = 1.0      # trail SL at 1× ATR behind current price (after break-even fires)
+ATR_SANITY_MIN = 2.0      # minimum plausible H1 ATR for XAUUSD — anything below means bad data
+MIN_SL_DIST    = 0.01     # minimum price distance to treat an SL as meaningfully set
+
 # --- Bot Loop ---
 CHECK_INTERVAL = 60        # seconds between each analysis cycle
